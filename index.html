@@ -1,8 +1,9 @@
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI予想＆検証ノート（完全版）</title>
+  <title>競馬AI予想＆自動検証ノート（完全版）</title>
   <style>
     body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 800px; margin: auto; color: #333; }
     h1 { font-size: 1.2rem; text-align: center; color: #2c3e50; margin-bottom: 15px; }
@@ -43,7 +44,7 @@
 </head>
 <body>
 
-  <h1>🐎 競馬AI予想＆検証ノート</h1>
+  <h1>🐎 競馬AI予想＆自動検証ノート</h1>
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('tab1')">①指数</div>
@@ -82,7 +83,7 @@
     <button class="btn-secondary" onclick="saveRaceData('Dev')">この偏差値データを保存</button>
   </div>
 
-   <!-- ③ 変わり身 -->
+  <!-- ③ 変わり身 -->
   <div id="tab3" class="tab-content">
     <div class="card">
       <label>レース名</label>
@@ -101,7 +102,7 @@
       <label>レース名</label>
       <input type="text" id="raceName4" placeholder="例: 京都11R 天皇賞">
       <label>「血統・系統」テキストをペースト</label>
-      <textarea id="pasteData4" placeholder="17番 ダノンデサイル：父 エピファネイア（ロベルト系）..."></textarea>
+      <textarea id="pasteData4" placeholder="17番 ダノンデサイル：父 エピファネイア..."></textarea>
       <button class="btn-primary" onclick="parseBloodTable()">血統データを展開</button>
     </div>
     <div class="table-wrapper"><table id="tableBlood"><thead><tr><th>番</th><th>馬名</th><th>父・系統</th></tr></thead><tbody></tbody></table></div>
@@ -122,7 +123,7 @@
       <button class="btn-ai" onclick="generateAIPrediction()">🤖 AIに予想を出力させる</button>
     </div>
     <div id="predictionResult" class="prediction-box">
-      <h3>🎯 AIレース予想結果</h3>
+      <h3>🎯 AIレース予想結果 (単勝・2連単・3連単)</h3>
       <div id="predContent"></div>
       <button class="btn-warning" style="margin-top:15px;" onclick="moveToWaitingList()">⏳ この予想を「結果待ちリスト」にキープする</button>
     </div>
@@ -141,8 +142,8 @@
       <select id="selectRaceForReview" style="width:100%; padding:8px; margin-bottom:10px;" onchange="loadRaceForReview()">
         <option value="">-- レースを選択してください --</option>
       </select>
-      <label>レース結果・反省・検証メモ</label>
-      <textarea id="reviewText" style="height:130px;" placeholder="反省メモ..."></textarea>
+      <label>AI自動検証レポート ＆ 反省メモ</label>
+      <textarea id="reviewText" style="height:150px;" placeholder="ここにAIの検証結果が反映されます..."></textarea>
       <button class="btn-primary" onclick="saveReview()">検証メモを保存</button>
     </div>
   </div>
@@ -165,19 +166,15 @@
     }
 
     function initTables() {
-      // Index
       let tb1 = document.querySelector('#tableIndex tbody'); tb1.innerHTML = '';
       for(let i=0; i<16; i++) tb1.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td></tr>`;
       
-      // Dev
       let tb2 = document.querySelector('#tableDev tbody'); tb2.innerHTML = '';
       for(let i=0; i<16; i++) tb2.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td></tr>`;
 
-      // Change
       let tb3 = document.querySelector('#tableChange tbody'); tb3.innerHTML = '';
       for(let i=0; i<16; i++) tb3.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td></tr>`;
 
-      // Blood
       let tb4 = document.querySelector('#tableBlood tbody'); tb4.innerHTML = '';
       for(let i=0; i<16; i++) tb4.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input name-input"></td></tr>`;
     }
@@ -242,7 +239,6 @@
       let races = getStoredRaces();
       let r = races.find(item => item.raceName === rn) || { raceName: rn, date: new Date().toLocaleDateString(), status: '待機中' };
       
-      // テーブルデータを取得して保存
       let rows = document.querySelectorAll(`#table${type} tbody tr`);
       let data = [];
       rows.forEach(tr => {
@@ -260,7 +256,7 @@
       alert(`「${rn}」の${type}データを保存しました！`);
     }
 
-    let currentPredText = "";
+    let currentPredData = {};
     let currentRaceName = "";
 
     function generateAIPrediction() {
@@ -268,9 +264,7 @@
       const pointCount = document.getElementById('predPointCount').value;
       const races = getStoredRaces();
       
-      // 全保存データから馬ごとにスコア合算
       let horsesMap = {};
-
       races.forEach(r => {
         if(r.raceName === currentRaceName) {
           ['Index', 'Dev', 'Change', 'Blood'].forEach(t => {
@@ -282,16 +276,16 @@
                 if(!horsesMap[num]) horsesMap[num] = { num, name: name || '馬番'+num, score: 50 };
 
                 if(t === 'Index') {
-                  horsesMap[num].score += (parseFloat(row.col3) || 0) * 0.2; // SP
-                  horsesMap[num].score += (parseFloat(row.col5) || 0) * 0.3; // SA
+                  horsesMap[num].score += (parseFloat(row.col3) || 0) * 0.2;
+                  horsesMap[num].score += (parseFloat(row.col5) || 0) * 0.3;
                 }
                 if(t === 'Dev') {
-                  horsesMap[num].score += (parseFloat(row.col2) || 0) * 0.4; // 総合
-                  horsesMap[num].score += (parseFloat(row.col5) || 0) * 0.3; // 実績
+                  horsesMap[num].score += (parseFloat(row.col2) || 0) * 0.4;
+                  horsesMap[num].score += (parseFloat(row.col5) || 0) * 0.3;
                 }
                 if(t === 'Change') {
-                  horsesMap[num].score += (parseFloat(row.col2) || 0) * 5;  // 緑
-                  horsesMap[num].score -= (parseFloat(row.col3) || 0) * 5;  // 紫
+                  horsesMap[num].score += (parseFloat(row.col2) || 0) * 5;
+                  horsesMap[num].score -= (parseFloat(row.col3) || 0) * 5;
                 }
               });
             }
@@ -301,7 +295,6 @@
 
       let horses = Object.values(horsesMap);
       if(horses.length === 0) {
-        // 保存していなくても現在入力中の偏差値テーブルから直接計算を試みる
         document.querySelectorAll('#tableDev tbody tr').forEach(tr => {
           let inputs = tr.querySelectorAll('input');
           if(inputs[1].value.trim() !== '') {
@@ -310,28 +303,42 @@
         });
       }
 
-      if(horses.length === 0) return alert("データが見つかりません。各タブでデータを入力・保存してから実行してください。");
+      if(horses.length === 0) return alert("データが見つかりません。各タブでデータを保存してから実行してください。");
 
       horses.sort((a, b) => b.score - a.score);
       const h1 = horses[0], h2 = horses[1], h3 = horses[2], h4 = horses[3], h5 = horses[4] || h3;
 
-      currentPredText = `【本命】${h1.num}番 ${h1.name} / 【対抗】${h2.num}番 ${h2.name} / (${pointCount}点)`;
+      // 買い目のデータを構造化して保存
+      currentPredData = {
+        h1Num: h1.num, h1Name: h1.name,
+        h2Num: h2.num, h2Name: h2.name,
+        h3Num: h3.num, h3Name: h3.name,
+        h4Num: h4.num,
+        h5Num: h5.num,
+        pointCount: pointCount
+      };
+
+      let text = `【単勝】 ${h1.num}番 (${h1.name})<br>` +
+                 `【2連単】 軸: ${h1.num} → 相手: ${h2.num}, ${h3.num}, ${h4.num}<br>` +
+                 `【3連単(${pointCount}点)】 1着:${h1.num} / 2着:${h2.num},${h3.num} / 3着:${h2.num},${h3.num},${h4.num},${h5.num}`;
+
+      currentPredData.text = text;
 
       let html = `<div class="pred-section"><b>■ レース:</b> ${currentRaceName}</div>`;
       html += `<div class="pred-section"><b>■ 本命 (◎):</b> ${h1.num}番 ${h1.name} (スコア:${Math.round(h1.score)})</div>`;
       html += `<div class="pred-section"><b>■ 対抗 (〇):</b> ${h2.num}番 ${h2.name} (スコア:${Math.round(h2.score)})</div>`;
-      html += `<div class="pred-section"><b>■ 2連単:</b> 軸 ${h1.num} → ${h2.num}, ${h3.num}, ${h4.num}</div>`;
-      html += `<div class="pred-section"><b>■ 3連単 (${pointCount}点):</b> 1着:${h1.num} / 2着:${h2.num},${h3.num} / 3着:${h2.num},${h3.num},${h4.num},${h5.num}</div>`;
+      html += `<div class="pred-section"><b>■ 買い目詳細:</b><br>${text}</div>`;
 
       document.getElementById('predContent').innerHTML = html;
       document.getElementById('predictionResult').style.display = 'block';
     }
 
     function moveToWaitingList() {
-      if(!currentPredText) return alert("先にAI予想を出力してください。");
+      if(!currentPredData.text) return alert("先にAI予想を出力してください。");
       let races = getStoredRaces();
       let r = races.find(item => item.raceName === currentRaceName) || { raceName: currentRaceName, date: new Date().toLocaleDateString() };
-      r.prediction = currentPredText;
+      r.prediction = currentPredData.text;
+      r.predData = currentPredData;
       r.status = '待機中';
       if(!races.some(item => item.raceName === currentRaceName)) races.push(r);
       localStorage.setItem('keiba_races', JSON.stringify(races));
@@ -350,23 +357,62 @@
         if(r.status === '待機中') {
           list.innerHTML += `<div class="history-item">
             <div class="history-header"><span>${r.date} : ${r.raceName}</span><button class="btn-danger" onclick="deleteRace(${idx})">削除</button></div>
-            <div><b>予想:</b> ${r.prediction}</div>
-            <label style="font-size:11px; margin-top:5px;">結果を入力:</label>
-            <input type="text" id="res_${idx}" value="${r.result||''}" placeholder="例: 1着 17番、2着 7番">
-            <button class="btn-primary" style="padding:8px; font-size:12px; margin-top:5px;" onclick="completeRes(${idx})">🏁 結果確定して検証へ</button>
+            <div><b>予想:</b><br>${r.prediction}</div>
+            <label style="font-size:11px; margin-top:8px;">実際の着順を入力 (例: 1着 17, 2着 7, 3着 3):</label>
+            <input type="text" id="res_${idx}" value="${r.result||''}" placeholder="1着 馬番, 2着 馬番, 3着 馬番">
+            <button class="btn-primary" style="padding:8px; font-size:12px; margin-top:5px;" onclick="completeRes(${idx})">🤖 結果を元にAIに検証させる</button>
           </div>`;
         }
       });
     }
 
+   // 🤖 AI自動検証エンジン（単勝・2連単・3連単の合否を判定してレポート作成）
     function completeRes(idx) {
       let races = getStoredRaces();
-      races[idx].result = document.getElementById(`res_${idx}`).value;
+      let resText = document.getElementById(`res_${idx}`).value.trim();
+      if(!resText) return alert("結果を入力してください。");
+
+      races[idx].result = resText;
       races[idx].status = '完了';
-      races[idx].review = `[結果]: ${races[idx].result} \n[予想]: ${races[idx].prediction}`;
+
+      let p = races[idx].predData || {};
+      let matchNums = resText.match(/\d+/g) || [];
+      let actual1 = matchNums[0] || "";
+      let actual2 = matchNums[1] || "";
+      let actual3 = matchNums[2] || "";
+
+      let tanHit = (actual1 === p.h1Num);
+      let exactaHit = (actual1 === p.h1Num && (actual2 === p.h2Num || actual2 === p.h3Num || actual2 === p.h4Num));
+      let trifectaHit = false;
+
+      // 3連単の簡単な当たり判定（本命が1着かつ2・3着に上位が入っているか）
+      if (actual1 === p.h1Num) {
+        let secondOk = (actual2 === p.h2Num || actual2 === p.h3Num);
+        let thirdOk = (actual3 === p.h2Num || actual3 === p.h3Num || actual3 === p.h4Num || actual3 === p.h5Num);
+        if (secondOk && thirdOk) trifectaHit = true;
+      }
+
+      let report = `【AI自動検証レポート】\n`;
+      report += `・実際の着順: 1着[${actual1}番] 2着[${actual2}番] 3着[${actual3}番]\n`;
+      report += `------------------------------------\n`;
+      report += `・単勝 判定: ${tanHit ? '🎯 的中！' : '❌ 不的中'}\n`;
+      report += `・2連単 判定: ${exactaHit ? '🎯 的中！' : '❌ 不的中'}\n`;
+      report += `・3連単 判定: ${trifectaHit ? '🎯 的中！' : '❌ 不的中'}\n`;
+      report += `------------------------------------\n`;
+      report += `【AI総評】\n`;
+      if (trifectaHit) {
+        report += `完璧な読みでした！本命馬がしっかり頭で抜け出し、紐馬も完璧に捉えています。スコア計算のロジックが機能しました。`;
+      } else if (tanHit || exactaHit) {
+        report += `惜しい！軸（本命）の選定は正しかったものの、相手選びや着順の入れ替わりに少しズレがありました。次走の馬券構築の参考にしてください。`;
+      } else {
+        report += `今回は荒れ模様、または想定と異なる展開になりました。選定した各指標（指数や変わり身）の重み付けを見直す余地があります。`;
+      }
+
+      races[idx].review = report;
       localStorage.setItem('keiba_races', JSON.stringify(races));
-      alert("結果を確定しました！⑦タブで検証メモが書けます。");
-      updateWaitingUI();
+      alert("AIによる検証が完了しました！⑦タブ（検証メモ）でレポートを確認できます。");
+      switchTab('tab7');
+      updateHistoryUI();
     }
 
     function updateHistoryUI() {
@@ -383,7 +429,7 @@
         let origIdx = races.length - 1 - idx;
         list.innerHTML += `<div class="history-item">
           <div class="history-header"><span>${r.date} : ${r.raceName} [${r.status||'完了'}]</span><button class="btn-danger" onclick="deleteRace(${origIdx})">削除</button></div>
-          <div><b>メモ:</b> ${r.review || 'なし'}</div>
+          <div style="white-space: pre-wrap; font-size:12px;"><b>検証レポート:</b>\n${r.review || 'なし'}</div>
         </div>`;
       });
     }
@@ -423,4 +469,3 @@
   </script>
 </body>
 </html>
-
