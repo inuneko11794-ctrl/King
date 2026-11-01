@@ -3,184 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI解析（超高速・手入力モード）</title>
+  <title>競馬 予想・検証ノート</title>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 700px; margin: auto; }
-    h1 { font-size: 1.2rem; text-align: center; color: #333; margin-bottom: 15px; }
+    body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 800px; margin: auto; color: #333; }
+    h1 { font-size: 1.2rem; text-align: center; color: #2c3e50; margin-bottom: 15px; }
     
+    /* タブ */
     .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; }
-    .tab { padding: 10px 15px; cursor: pointer; font-weight: bold; color: #666; background: #e9ecef; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; flex: 1; text-align: center; font-size: 13px; }
+    .tab { padding: 10px; cursor: pointer; font-weight: bold; color: #666; background: #e9ecef; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; flex: 1; text-align: center; font-size: 12px; }
     .tab.active { background: #fff; color: #d32f2f; border-top: 3px solid #d32f2f; border-bottom: 2px solid #fff; margin-bottom: -2px; }
     .tab-content { display: none; background: #fff; padding: 15px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .tab-content.active { display: block; }
     
-    .head-count-box { background: #e9ecef; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; font-size: 14px; }
-    select { padding: 6px; font-size: 14px; margin-left: 10px; }
+    .card { margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #ddd; }
+    label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #555; }
+    input[type="text"], textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-bottom: 10px; }
+    textarea { height: 100px; font-family: monospace; }
     
-    button { padding: 14px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-top: 10px; margin-bottom: 10px; }
-    .btn-calc { background: #28a745; }
-    .btn-csv { background: #007bff; font-size: 13px; padding: 10px; }
+    button { padding: 12px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-bottom: 10px; }
+    .btn-primary { background: #28a745; }
+    .btn-secondary { background: #007bff; }
+    .btn-danger { background: #dc3545; font-size: 12px; padding: 6px; width: auto; }
     
-    .commentary { background: #f0f4c3; border-left: 5px solid #827717; padding: 15px; margin-top: 15px; border-radius: 4px; font-size: 14px; line-height: 1.6; display: none; color: #333; font-weight: 500; }
-    
+    /* テーブル */
     .table-wrapper { overflow-x: auto; margin-top: 10px; margin-bottom: 15px; }
-    table { border-collapse: collapse; width: 100%; font-size: 12px; background: white; min-width: 500px; }
-    th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
-    th { background: #2c3e50; color: white; padding: 6px; }
-    input.cell-input { width: 100%; box-sizing: border-box; padding: 6px 2px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; }
-    input.name-input { text-align: left; min-width: 110px; padding-left: 6px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; background: white; min-width: 600px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background: #2c3e50; color: white; }
+    input.cell-input { width: 100%; box-sizing: border-box; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+    
+    /* 検証・履歴リスト */
+    .history-item { background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; }
+    .history-header { font-weight: bold; color: #007bff; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
 
-  <h1>🐎 競馬AI解析（超高速・手入力モード）</h1>
+  <h1>🐎 競馬 予想・検証ノート</h1>
 
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('tab1')">① 指数一覧</div>
-    <div class="tab" onclick="switchTab('tab2')">② 偏差値</div>
-    <div class="tab" onclick="switchTab('tab3')">③ 変わり身</div>
+    <div class="tab active" onclick="switchTab('tab1')">① データ入力・予想</div>
+    <div class="tab" onclick="switchTab('tab2')">② 検証・反省メモ</div>
+    <div class="tab" onclick="switchTab('tab3')">③ 蓄積データ一覧</div>
   </div>
 
-  <!-- ① 指数一覧 -->
+  <!-- ① データ入力・予想タブ -->
   <div id="tab1" class="tab-content active">
-    <div class="head-count-box">
-      出走頭数: <select id="count1" onchange="buildTable(1)"><option value="16" selected>16頭</option></select>
+    <div class="card">
+      <label>レース名（例: 京都2歳未勝利）</label>
+      <input type="text" id="raceName" placeholder="例: 京都11R 2歳未勝利">
+      
+      <label>AIやチャットのテキストデータをここにペースト</label>
+      <textarea id="pasteData" placeholder="例:
+17番 ダノンデサイル：総合 68 | SP 67...
+10番 ネブラディスク：総合 51..."></textarea>
+      
+      <button class="btn-primary" onclick="parseAndFillTable()">テキストからテーブルに展開</button>
     </div>
+
+    <h3>馬別データ・スコア調整</h3>
     <div class="table-wrapper">
-      <table id="table1">
-        <thead><tr><th>番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>SA</th></tr></thead>
-        <tbody></tbody>
+      <table id="editTable">
+        <thead>
+          <tr><th>番</th><th>馬名/情報</th><th>総合/人気</th><th>SP</th><th>AG</th><th>実績/SA</th><th>評価</th></tr>
+        </thead>
+        <tbody>
+          <!-- 動的生成 -->
+        </tbody>
       </table>
     </div>
-    <button class="btn-calc" onclick="analyzeAndRun(1)">入力データから展開を推測する</button>
-    <div id="commentary1" class="commentary"></div>
-    <button class="btn-csv" onclick="exportCSV(1)">CSV出力</button>
+    
+    <button class="btn-secondary" onclick="saveRaceData()">このレースの予想を蓄積・保存する</button>
   </div>
 
-  <!-- ② 偏差値 -->
+  <!-- ② 検証・反省メモタブ -->
   <div id="tab2" class="tab-content">
-    <div class="head-count-box">
-      出走頭数: <select id="count2" onchange="buildTable(2)"><option value="16" selected>16頭</option></select>
+    <div class="card">
+      <label>保存済みレースの選択</label>
+      <select id="selectRaceForReview" style="width:100%; padding:8px; margin-bottom:10px;" onchange="loadRaceForReview()">
+        <option value="">-- レースを選択してください --</option>
+      </select>
+      
+      <label>レース結果・反省・検証メモ</label>
+      <textarea id="reviewText" placeholder="例: 1着はダノンデサイルで的中。しかし2着の穴馬の拾い方に課題あり。SP値の高さをもっと重視すべきだった。"></textarea>
+      
+      <button class="btn-primary" onclick="saveReview()">検証メモを更新・保存</button>
     </div>
-    <div class="table-wrapper">
-      <table id="table2">
-        <thead><tr><th>番</th><th>総合(偏)</th><th>実績</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <button class="btn-calc" onclick="analyzeAndRun(2)">入力データから本質を見抜く</button>
-    <div id="commentary2" class="commentary"></div>
-    <button class="btn-csv" onclick="exportCSV(2)">CSV出力</button>
   </div>
 
-  <!-- ③ 変わり身 -->
+  <!-- ③ 蓄積データ一覧タブ -->
   <div id="tab3" class="tab-content">
-    <div class="head-count-box">
-      出走頭数: <select id="count3" onchange="buildTable(3)"><option value="16" selected>16頭</option></select>
+    <h3>蓄積されたレース・検証ログ</h3>
+    <div id="historyList">
+      <!-- 蓄積データがここに並ぶ -->
     </div>
-    <div class="table-wrapper">
-      <table id="table3">
-        <thead><tr><th>番</th><th>緑(良)</th><th>紫(悪)</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <button class="btn-calc" onclick="analyzeAndRun(3)">状態マークから波乱度を分析</button>
-    <div id="commentary3" class="commentary"></div>
-    <button class="btn-csv" onclick="exportCSV(3)">CSV出力</button>
+    <button class="btn-danger" onclick="clearAllData()" style="margin-top:20px;">全データをクリア（初期化）</button>
   </div>
 
   <script>
-    // 5〜18頭のプルダウン生成
-    document.querySelectorAll('select').forEach(select => {
-      select.innerHTML = "";
-      for(let i = 5; i <= 18; i++) {
-        const opt = document.createElement('option');
-        opt.value = i; opt.text = `${i}頭`;
-        if(i === 16) opt.selected = true; 
-        select.appendChild(opt);
-      }
-    });
-
     function switchTab(tabId) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById(tabId).classList.add('active');
+      if(tabId === 'tab2' || tabId === 'tab3') updateHistoryUI();
     }
 
-    // テーブルの行を動的に生成
-    function buildTable(id) {
-      const count = parseInt(document.getElementById(`count${id}`).value);
-      const tbody = document.querySelector(`#table${id} tbody`);
+    // 初期テーブル生成（16頭分）
+    function initTable(data = []) {
+      const tbody = document.querySelector('#editTable tbody');
       tbody.innerHTML = '';
-      
-      for(let i = 0; i < count; i++) {
-        let cols = "";
-        let defaultNum = i + 1; // 馬番の初期値を1, 2, 3...にする
-        if(id === 1) cols = `<td><input type="number" class="cell-input" style="width:35px;" value="${defaultNum}"></td><td><input type="text" class="cell-input name-input" placeholder="馬名"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td>`;
-        if(id === 2) cols = `<td><input type="number" class="cell-input" style="width:40px;" value="${defaultNum}"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td>`;
-        if(id === 3) cols = `<td><input type="number" class="cell-input" style="width:40px;" value="${defaultNum}"></td><td><input type="number" class="cell-input" value="0"></td><td><input type="number" class="cell-input" value="0"></td>`;
-        tbody.innerHTML += `<tr>${cols}</tr>`;
+      for (let i = 0; i < 16; i++) {
+        const d = data[i] || {num: i+1, col1: '', col2: '', col3: '', col4: '', memo: ''};
+        tbody.innerHTML += `<tr>
+          <td><input type="text" class="cell-input" value="${d.num}" style="width:35px;"></td>
+          <td><input type="text" class="cell-input" value="${d.col1}" style="text-align:left;"></td>
+          <td><input type="text" class="cell-input" value="${d.col2}"></td>
+          <td><input type="text" class="cell-input" value="${d.col3}"></td>
+          <td><input type="text" class="cell-input" value="${d.col4}"></td>
+          <td><input type="text" class="cell-input" value="${d.col5 || ''}"></td>
+          <td><input type="text" class="cell-input" value="${d.memo || ''}"></td>
+        </tr>`;
       }
     }
+    initTable();
 
-    // 初期化時に全タブのテーブルを作成
-    [1, 2, 3].forEach(id => buildTable(id));
-
-    // 入力データに基づいたAI考察生成
-    function analyzeAndRun(id) {
-      const div = document.getElementById(`commentary${id}`);
-      const rows = document.querySelectorAll(`#table${id} tbody tr`);
-      const results = [];
+    // 貼り付けたテキストをざっくり解析してテーブルに流し込む機能
+    function parseAndFillTable() {
+      const text = document.getElementById('pasteData').value;
+      const lines = text.split('\n').filter(l => l.trim() !== '');
+      const data = [];
       
-      rows.forEach(tr => {
-        const inputs = tr.querySelectorAll('input');
-        if(id === 1 && inputs[0].value) results.push({ num: inputs[0].value, name: inputs[1].value, pop: parseFloat(inputs[2].value)||0, sp: parseFloat(inputs[3].value)||0, ag: parseFloat(inputs[4].value)||0, sa: parseFloat(inputs[5].value)||0 });
-        if(id === 2 && inputs[0].value) results.push({ num: inputs[0].value, devT: parseFloat(inputs[1].value)||0, devA: parseFloat(inputs[2].value)||0 });
-        if(id === 3 && inputs[0].value) results.push({ num: inputs[0].value, good: parseFloat(inputs[1].value)||0, bad: parseFloat(inputs[2].value)||0 });
+      lines.forEach((line, i) => {
+        // 数字やコロン、パイプなどでデータを分解する簡易パーサー
+        const parts = line.split(/[:|]/);
+        let num = line.match(/\d+番/) ? line.match(/\d+/)[0] : (i+1);
+        let col1 = parts[0] ? parts[0].trim() : line;
+        let col2 = parts[1] ? parts[1].trim() : '';
+        let col3 = parts[2] ? parts[2].trim() : '';
+        let col4 = parts[3] ? parts[3].trim() : '';
+        
+        data.push({ num, col1, col2, col3, col4, col5: '', memo: '' });
       });
-
-      if(results.length === 0) return alert("データを入力してください。");
-
-      let text = "<b>【AI予測・考察】</b><br><br>";
-      if (id === 1) { 
-        const highSA = results.filter(r => r.sa >= 85 && r.pop >= 6);
-        if(highSA.length > 0) text += `🎯 穴馬候補：<b>${highSA.map(r => r.name || r.num+"番").join("、")}</b>（SA値優秀かつ人気薄）<br>馬券の旨味が非常に高い一頭です。`;
-        else text += `🎯 指数値と人気が概ねリンクしており、波乱の少ない堅実な構成です。`;
-      } 
-      else if (id === 2) { 
-        const rising = results.filter(r => r.devT - r.devA >= 10);
-        if(rising.length > 0) text += `📈 勢い・上昇度あり：<b>${rising.map(r=>r.num+"番").join("、")}</b><br>過去の実績以上に現在の状態が良い注目馬です。`;
-        else text += `⚖️ 実績と現在の状態がしっかりリンクした堅実な決着になりそうです。`;
-      } 
-      else if (id === 3) { 
-        const goodH = results.filter(r => r.good > 0);
-        const badH = results.filter(r => r.bad > 0);
-        if(goodH.length > 0 && badH.length > 0) text += `⚡️ 好走・不安要素が混在しており<b>波乱注意</b>のレースです。`;
-        else if(goodH.length > 0) text += `✨ 変わり身（緑マーク）あり：<b>${goodH.map(r=>r.num+"番").join("、")}</b>の上積みに期待できます。`;
-        else text += `📊 特筆すべき変わり身はなくフラットな地力勝負です。`;
-      }
-      div.innerHTML = text;
-      div.style.display = 'block';
+      
+      initTable(data);
+      alert("テキストを展開しました！必要に応じて微調整してください。");
     }
 
-    // CSV出力
-    function exportCSV(id) {
-      const rows = document.querySelectorAll(`#table${id} tbody tr`);
-      let csv = [];
-      const headers = Array.from(document.querySelectorAll(`#table${id} thead th`)).map(th => th.textContent);
-      csv.push(headers.join(','));
-      rows.forEach(tr => {
-        const rowData = Array.from(tr.querySelectorAll('input')).map(input => `"${input.value}"`);
-        csv.push(rowData.join(','));
-      });
-      const blob = new Blob([csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      const now = new Date();
-      link.download = `競馬データ_タブ${id}_${now.getMonth()+1}${now.getDate()}_${now.getHours()}${now.getMinutes()}.csv`;
-      link.click();
+    // --- ローカルストレージへの蓄積ロジック ---
+    function getStoredRaces() {
+      return JSON.parse(localStorage.getItem('keiba_races') || '[]');
     }
-  </script>
-</body>
-</html>
+
+    function saveRaceData() {
