@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>競馬指数自動予想</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 10px; background: #f9f9f9; max-width: 900px; margin: auto; }
+    .top3 { background: #fff3e0 !important; }
+    .score { font-weight: bold; color: #d32f2f; }
+    button { padding: 12px 16px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; }
+    #status { margin-top: 10px; font-weight: bold; color: #007bff; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; background: white; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #4CAF50; color: white; }
+  </style>
+</head>
+<body>
+  <h1>競馬指数自動予想</h1>
+  <input type="file" id="imageInput" accept="image/*" style="margin-bottom: 10px; width: 100%;">
+  <button id="btnAnalyze">画像を解析して予想を生成</button>
+  <div id="status"></div>
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('btnAnalyze').addEventListener('click', async () => {
+      const fileInput = document.getElementById('imageInput');
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+
+      if (!fileInput.files[0]) return alert("画像を選択してください");
+
+      statusEl.textContent = "AIで画像を解析中...（数十秒かかります）";
+      resultEl.innerHTML = "";
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      try {
+        const response = await fetch("/api/analyze", { method: "POST", body: formData });
+        if (!response.ok) throw new Error("解析に失敗しました");
+        
+        const data = await response.json();
+        statusEl.textContent = "解析完了！";
+
+        const sorted = [...data.horses].sort((a, b) => b.score - a.score);
+        let html = `<h2>${data.race_name}</h2><table>
+          <tr><th>印</th><th>番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>SA</th><th>スコア</th></tr>`;
+        
+        sorted.forEach((h, i) => {
+          const cls = i < 3 ? 'top3' : '';
+          const mark = i === 0 ? '◎' : (i === 1 ? '◯' : (i === 2 ? '▲' : ''));
+          html += `<tr class="${cls}">
+            <td style="font-weight:bold; color:red;">${mark}</td>
+            <td>${h.number}</td><td>${h.name}</td><td>${h.pop}</td>
+            <td>${h.sp}</td><td>${h.ag}</td><td>${h.sa}</td>
+            <td class="score">${h.score.toFixed(1)}</td>
+          </tr>`;
+        });
+        html += '</table>';
+        resultEl.innerHTML = html;
+      } catch (error) {
+        statusEl.textContent = "エラーが発生しました。画像を確認してください。";
+      }
+    });
+  </script>
+</body>
+</html>
