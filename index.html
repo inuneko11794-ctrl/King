@@ -2,198 +2,62 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>セル個別判定テスト（座標ズレ修正版）</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <title>競馬指数予想（プロトタイプ）</title>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 10px; background: #f9f9f9; }
-    
-    /* 修正1: コンテナの余計なスクロール設定を削除 */
-    .canvas-container { 
-      width: 100%; 
-      border: 2px solid #ccc; 
-      background: #fff; 
-      margin-bottom: 10px;
-    }
-    
-    /* 修正2: スマホ画面の幅に100%フィットさせ、縦横比を崩さない設定 */
-    #mainCanvas { 
-      width: 100%; 
-      height: auto; 
-      display: block; 
-      touch-action: none; /* スワイプでの画面スクロールを完全に防止 */
-    }
-    
-    .controls { display: flex; gap: 10px; flex-wrap: wrap; }
-    button { padding: 12px 16px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: bold; flex-grow: 1; }
-    .btn-symbol { background: #007bff; }
-    .btn-ocr { background: #28a745; }
-    #result { margin-top: 15px; padding: 15px; background: #e9ecef; border-radius: 6px; font-size: 16px; font-weight: bold; min-height: 2em; white-space: pre-wrap; word-break: break-all; }
-    #tempCanvas { display: none; }
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #4CAF50; color: white; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .score { font-weight: bold; color: #d32f2f; }
+    .top3 { background: #fff3e0 !important; }
   </style>
 </head>
 <body>
-
-  <h3>1. 画像を選択</h3>
-  <input type="file" id="imageInput" accept="image/*">
-
-  <h3>2. 判定したいマスを指でなぞって選択（赤枠）</h3>
-  <div class="canvas-container">
-    <canvas id="mainCanvas"></canvas>
-  </div>
-
-  <div class="controls">
-    <button class="btn-symbol" id="btnSymbol">マーク判定</button>
-    <button class="btn-ocr" id="btnOcr">文字読み取り</button>
-  </div>
-
-  <div id="result">結果がここに表示されます</div>
-
-  <canvas id="tempCanvas"></canvas>
+  <h1>競馬指数予想（サンプル）</h1>
+  <p>このページはサンプルデータで動いています。Python側でOCR＋保存した結果をJSONで渡せば本格運用できます。</p>
+  <div id="result"></div>
 
   <script>
-    const input = document.getElementById('imageInput');
-    const canvas = document.getElementById('mainCanvas');
-    const ctx = canvas.getContext('2d');
-    const resultEl = document.getElementById('result');
-    const tempCanvas = document.getElementById('tempCanvas');
-    const tempCtx = tempCanvas.getContext('2d');
+    // サンプルデータ（実際はAPIやJSONファイルから取得）
+    const sample = {
+      race_name: "2歳未勝利（サンプル）",
+      horses: [
+        {"number":5,"name":"マルモリマイベスト","popularity":1,"sp":89,"ag":43,"s":39,"a":51,"sa":97,"score":62.1},
+        {"number":10,"name":"ダイユウエゾフジ","popularity":10,"sp":94,"ag":82,"s":36,"a":50,"sa":98,"score":70.8},
+        {"number":13,"name":"ジャスコヒラリアス","popularity":6,"sp":82,"ag":45,"s":46,"a":52,"sa":98,"score":64.5},
+        {"number":7,"name":"シムサラビン","popularity":5,"sp":59,"ag":100,"s":42,"a":52,"sa":94,"score":68.9},
+        {"number":11,"name":"エリーマイラヴ","popularity":9,"sp":70,"ag":52,"s":45,"a":50,"sa":95,"score":61.2},
+        {"number":1,"name":"スリーオブスペイズ","popularity":2,"sp":82,"ag":12,"s":46,"a":48,"sa":94,"score":55.3},
+        {"number":14,"name":"ピコジャック","popularity":7,"sp":59,"ag":28,"s":30,"a":47,"sa":94,"score":52.8},
+        {"number":3,"name":"ウィナーズクロノ","popularity":14,"sp":86,"ag":0,"s":25,"a":37,"sa":94,"score":48.6},
+        {"number":15,"name":"ヤマトデュノール","popularity":15,"sp":25,"ag":55,"s":33,"a":43,"sa":68,"score":41.2},
+        {"number":4,"name":"ランズエンド","popularity":13,"sp":0,"ag":0,"s":21,"a":39,"sa":68,"score":32.1},
+        {"number":2,"name":"ゴールドアーク","popularity":16,"sp":0,"ag":0,"s":17,"a":34,"sa":51,"score":24.5},
+        {"number":9,"name":"エアロクリスタ","popularity":3,"sp":0,"ag":0,"s":0,"a":0,"sa":0,"score":10.4},
+        {"number":8,"name":"ベラジオセブン","popularity":4,"sp":0,"ag":0,"s":0,"a":0,"sa":0,"score":9.6},
+        {"number":12,"name":"アセンシオン","popularity":8,"sp":0,"ag":0,"s":0,"a":0,"sa":0,"score":6.4},
+        {"number":6,"name":"ピエナマーズ","popularity":12,"sp":0,"ag":0,"s":0,"a":0,"sa":0,"score":3.2},
+        {"number":16,"name":"ヴァルダンセ","popularity":11,"sp":0,"ag":0,"s":0,"a":0,"sa":0,"score":4.0}
+      ]
+    };
 
-    let img = new Image();
-    let isDrawing = false;
-    let startX = 0, startY = 0;
-    let rect = { x: 0, y: 0, w: 0, h: 0 };
-
-    // 画像読み込み
-    input.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          rect = { x: 0, y: 0, w: 0, h: 0 };
-          resultEl.textContent = "画像が読み込まれました。馬名などのマスをなぞってください。";
-        }
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // 修正3: より正確な座標計算ロジック
-    function getPos(e) {
-      const bRect = canvas.getBoundingClientRect();
-      // タッチイベントかマウスイベントかを安全に判定
-      const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
-      const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
-      
-      // 画面上の表示サイズ(bRect)と、実際の画像解像度(canvas)の比率を割り出す
-      const scaleX = canvas.width / bRect.width;
-      const scaleY = canvas.height / bRect.height;
-      
-      return {
-        x: (clientX - bRect.left) * scaleX,
-        y: (clientY - bRect.top) * scaleY
-      };
+    function render(data) {
+      const sorted = [...data.horses].sort((a, b) => b.score - a.score);
+      let html = `<h2>${data.race_name}</h2><table>
+        <tr><th>順位</th><th>馬番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>SA</th><th>スコア</th></tr>`;
+      sorted.forEach((h, i) => {
+        const cls = i < 3 ? 'top3' : '';
+        html += `<tr class="${cls}">
+          <td>${i+1}</td><td>${h.number}</td><td>${h.name}</td>
+          <td>${h.popularity}</td><td>${h.sp}</td><td>${h.ag}</td><td>${h.sa}</td>
+          <td class="score">${h.score}</td></tr>`;
+      });
+      html += '</table>';
+      document.getElementById('result').innerHTML = html;
     }
 
-    function startDraw(e) {
-      if (!img.src) return;
-      e.preventDefault();
-      isDrawing = true;
-      const pos = getPos(e);
-      startX = pos.x;
-      startY = pos.y;
-    }
-
-    function moveDraw(e) {
-      if (!isDrawing) return;
-      e.preventDefault();
-      const pos = getPos(e);
-      rect.x = Math.min(startX, pos.x);
-      rect.y = Math.min(startY, pos.y);
-      rect.w = Math.abs(pos.x - startX);
-      rect.h = Math.abs(pos.y - startY);
-
-      // 画像をリセットして赤枠を上書き描画
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      
-      // 修正4: 高解像度画像でも赤枠がハッキリ見えるように線の太さを動的調整
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = Math.max(3, canvas.width / 200); 
-      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
-    }
-
-    function endDraw() {
-      isDrawing = false;
-    }
-
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', moveDraw);
-    canvas.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('touchstart', startDraw, {passive: false});
-    canvas.addEventListener('touchmove', moveDraw, {passive: false});
-    canvas.addEventListener('touchend', endDraw);
-
-    // --- ボタン1: マーク・記号判定 ---
-    document.getElementById('btnSymbol').addEventListener('click', () => {
-      if (rect.w === 0 || rect.h === 0) return alert("赤枠で囲んでください");
-
-      tempCanvas.width = rect.w;
-      tempCanvas.height = rect.h;
-      tempCtx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
-      
-      const imgData = tempCtx.getImageData(0, 0, rect.w, rect.h);
-      const pixels = imgData.data;
-
-      let coloredPixelCount = 0;
-      const totalPixels = pixels.length / 4;
-
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i];
-        const g = pixels[i+1];
-        const b = pixels[i+2];
-        const avg = (r + g + b) / 3;
-
-        if (avg < 190) {
-          coloredPixelCount++;
-        }
-      }
-
-      const ratio = (coloredPixelCount / totalPixels) * 100;
-      let resultText = "空欄 (マークなし)";
-      if (ratio > 5) resultText = "判定: マーク・記号あり";
-
-      resultEl.textContent = `${resultText}\n(参考: 有色ピクセル割合 ${Math.round(ratio)}%)`;
-    });
-
-    // --- ボタン2: 文字OCR ---
-    document.getElementById('btnOcr').addEventListener('click', async () => {
-      if (rect.w === 0 || rect.h === 0) return alert("赤枠で囲んでください");
-      
-      resultEl.textContent = 'OCR読み取り中...';
-
-      tempCanvas.width = rect.w;
-      tempCanvas.height = rect.h;
-      tempCtx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
-
-      try {
-        const worker = await Tesseract.createWorker('jpn');
-        await worker.setParameters({
-          tessedit_pageseg_mode: '7',
-        });
-        
-        const { data: { text } } = await worker.recognize(tempCanvas);
-        resultEl.textContent = `OCR結果: ${text.trim()}`;
-        await worker.terminate();
-      } catch (error) {
-        console.error("OCRエラー:", error);
-        resultEl.textContent = "OCR処理中にエラーが発生しました。";
-      }
-    });
+    render(sample);
   </script>
 </body>
 </html>
