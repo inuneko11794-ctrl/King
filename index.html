@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI解析（実践考察＆データ蓄積版）</title>
+  <title>競馬AI解析（絶対表示・強引パース版）</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 700px; margin: auto; }
@@ -30,7 +30,7 @@
     .btn-csv { background: #007bff; font-size: 13px; padding: 10px; }
     button:disabled { background: #ccc; }
     
-    .status { text-align: center; font-weight: bold; color: #d32f2f; margin-bottom: 10px; font-size: 14px; }
+    .status { text-align: center; font-weight: bold; color: #d32f2f; margin-bottom: 10px; font-size: 14px; white-space: pre-wrap; }
     .commentary { background: #f0f4c3; border-left: 5px solid #827717; padding: 15px; margin-top: 15px; border-radius: 4px; font-size: 14px; line-height: 1.6; display: none; color: #333; font-weight: 500; }
     
     .table-wrapper { overflow-x: auto; margin-top: 10px; margin-bottom: 15px; }
@@ -45,7 +45,7 @@
 </head>
 <body>
 
-  <h1>🐎 競馬AI解析（実践考察＆データ蓄積版）</h1>
+  <h1>🐎 競馬AI解析（絶対表示・強引パース版）</h1>
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('tab1')">① 指数一覧</div>
@@ -66,7 +66,7 @@
     <canvas id="preview1" class="preview-canvas"></canvas>
     
     <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count1" class="horse-count" style="padding:4px;"></select></label>
-    <button class="btn-analyze" style="margin-top:10px;" onclick="analyzeData(1)">データを読み取って展開を推測</button>
+    <button class="btn-analyze" style="margin-top:10px;" onclick="analyzeData(1)">データを強引に読み取って展開推測</button>
     <div id="status1" class="status"></div>
     
     <div id="commentary1" class="commentary"></div>
@@ -129,12 +129,11 @@
   <canvas id="tempCanvas"></canvas>
 
   <script>
-    // 5頭〜18頭のプルダウンを自動生成
     document.querySelectorAll('.horse-count').forEach(select => {
       for(let i = 5; i <= 18; i++) {
         const opt = document.createElement('option');
         opt.value = i; opt.text = `${i}頭`;
-        if(i === 16) opt.selected = true; // デフォルトは16頭
+        if(i === 16) opt.selected = true; 
         select.appendChild(opt);
       }
     });
@@ -209,14 +208,14 @@
         const highSP = results.filter(r => r.sp >= 75);
         const highAG = results.filter(r => r.ag >= 65);
         if (highSA_lowPop.length > 0) {
-          text += `🎯 オッズの盲点になっている馬を発見。<b>${highSA_lowPop.map(r => r.name).join("、")}</b>は人気以上のポテンシャルを秘めており、馬券の旨味が非常に高い一頭です。<br><br>`;
+          text += `🎯 オッズの盲点になっている馬を発見。<b>${highSA_lowPop.map(r => r.name || r.num+"番").join("、")}</b>は人気以上のポテンシャルを秘めており、馬券の旨味が非常に高い一頭です。<br><br>`;
         } else {
           text += `🎯 指数上位と人気が概ねリンクしており、波乱の余地は少ない堅実なメンバー構成と見受けられます。<br><br>`;
         }
         if (highSP.length > 1) {
-          text += `🏃‍♂️ 展開：前に行きたい馬（SP上位）が複数おり、先行争いが激化する気配。展開が向けば、末脚に優れる<b>${highAG.length > 0 ? highAG.map(r=>r.name).join("、") : "後方待機の差し馬"}</b>の台頭に警戒が必要です。`;
+          text += `🏃‍♂️ 展開：前に行きたい馬（SP上位）が複数おり、先行争いが激化する気配。展開が向けば、末脚に優れる差し馬の台頭に警戒が必要です。`;
         } else if (highSP.length === 1) {
-          text += `🏃‍♂️ 展開：<b>${highSP[0].name}</b>が楽に主導権を握れそうな構成です。マイペースで逃げられれば、そのまま押し切る展開も十分考えられます。`;
+          text += `🏃‍♂️ 展開：<b>${highSP[0].name || highSP[0].num+"番"}</b>が楽に主導権を握れそうな構成です。マイペースで逃げられれば、そのまま押し切る展開も十分考えられます。`;
         } else {
           text += `🏃‍♂️ 展開：明確な逃げ馬が不在で、スローペースの瞬発力勝負になりやすいメンバー構成です。`;
         }
@@ -259,7 +258,6 @@
       const count = parseInt(document.getElementById(state[id].countId).value);
       
       const results = [];
-      const parseSafe = str => parseFloat(str.replace(/[Oo]/g, '0'));
 
       try {
         const worker = await Tesseract.createWorker('jpn');
@@ -273,44 +271,60 @@
             tempCanvas.width = img.width; tempCanvas.height = rowHeight;
             tempCtx.drawImage(img, 0, currentY, img.width, rowHeight, 0, 0, img.width, rowHeight);
             
+            // ★改良：色付きの背景（赤やオレンジ）の文字が消えないように、より賢く白黒化
             const d = tempCtx.getImageData(0,0,img.width,rowHeight);
             for(let p=0; p<d.data.length; p+=4) {
-              const c = (d.data[p]+d.data[p+1]+d.data[p+2])/3 < 120 ? 0 : 255;
-              d.data[p]=d.data[p+1]=d.data[p+2]=c;
+              const minVal = Math.min(d.data[p], d.data[p+1], d.data[p+2]);
+              const color = minVal < 110 ? 0 : 255; // 一番暗い色（黒文字）だけを残す
+              d.data[p]=d.data[p+1]=d.data[p+2]=color;
             }
             tempCtx.putImageData(d, 0, 0);
 
             const { data: { text } } = await worker.recognize(tempCanvas);
-            const parts = text.replace(/[口□_]/g, '').trim().split(/\s+/);
             
-            if (parts.length > 2 && !isNaN(parseInt(parts[0]))) {
-              const num = parseInt(parts[0]);
-              const nums = [];
-              for (let j = parts.length - 1; j >= 1; j--) {
-                const val = parseSafe(parts[j]);
-                if (!isNaN(val)) nums.unshift(val); else break;
+            // ★最強の強引パース処理（カタカナと数値を無理やりぶっこ抜く）
+            if (id === 1) {
+              const kanaMatch = text.match(/[ァ-ヴー]+/g);
+              const name = kanaMatch ? kanaMatch.join("") : "";
+              const numMatch = text.replace(/[Oo]/g, '0').match(/\d+(\.\d+)?/g); // 全ての数字を配列化
+              
+              let num = "", pop = 0, sp = 0, ag = 0, sa = 0;
+              if (numMatch && numMatch.length > 0) {
+                num = parseInt(numMatch[0]); // 最初の数字を馬番に
+                const tails = numMatch.slice(-6); // 後ろから最大6つ取得
+                while (tails.length < 6) tails.unshift("0"); // 足りなければ0で埋める
+                pop = parseFloat(tails[0]);
+                sp = parseFloat(tails[1]);
+                ag = parseFloat(tails[2]);
+                sa = parseFloat(tails[5]);
               }
               
-              if (id === 1 && nums.length >= 6) {
-                const name = parts.slice(1, parts.length - nums.length).join("").replace(/\d[牡牝せん].*/, "");
-                results.push({ num, name, pop: nums[0], sp: nums[1], ag: nums[2], sa: nums[5] });
-                tbody.innerHTML += `<tr>
-                  <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
-                  <td><input type="text" class="cell-input name-input" value="${name}"></td>
-                  <td><input type="number" class="cell-input" value="${nums[0]}"></td>
-                  <td><input type="number" class="cell-input" value="${nums[1]}"></td>
-                  <td><input type="number" class="cell-input" value="${nums[2]}"></td>
-                  <td><input type="number" class="cell-input" value="${nums[5]}"></td>
-                </tr>`;
-              } 
-              else if (id === 2 && nums.length >= 4) {
-                results.push({ num, devT: nums[0], devA: nums[3] });
-                tbody.innerHTML += `<tr>
-                  <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
-                  <td><input type="number" class="cell-input" value="${nums[0]}"></td>
-                  <td><input type="number" class="cell-input" value="${nums[3]}"></td>
-                </tr>`;
+              results.push({ num, name, pop, sp, ag, sa });
+              tbody.innerHTML += `<tr>
+                <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
+                <td><input type="text" class="cell-input name-input" value="${name}"></td>
+                <td><input type="number" class="cell-input" value="${pop}"></td>
+                <td><input type="number" class="cell-input" value="${sp}"></td>
+                <td><input type="number" class="cell-input" value="${ag}"></td>
+                <td><input type="number" class="cell-input" value="${sa}"></td>
+              </tr>`;
+            } 
+            else if (id === 2) {
+              const numMatch = text.replace(/[Oo]/g, '0').match(/\d+(\.\d+)?/g);
+              let num = "", devT = 0, devA = 0;
+              if (numMatch && numMatch.length > 0) {
+                num = parseInt(numMatch[0]);
+                const tails = numMatch.slice(-4); 
+                while (tails.length < 4) tails.unshift("0");
+                devT = parseFloat(tails[0]);
+                devA = parseFloat(tails[3]);
               }
+              results.push({ num, devT, devA });
+              tbody.innerHTML += `<tr>
+                <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
+                <td><input type="number" class="cell-input" value="${devT}"></td>
+                <td><input type="number" class="cell-input" value="${devA}"></td>
+              </tr>`;
             }
           } 
           else if (id === 3) {
@@ -322,39 +336,40 @@
             tempCtx.putImageData(dl, 0, 0);
             
             const { data: { text } } = await worker.recognize(tempCanvas);
-            const num = parseInt(text.replace(/[^\d]/g, ''));
+            const numMatch = text.replace(/[Oo]/g, '0').match(/\d+/);
+            const num = numMatch ? parseInt(numMatch[0]) : "";
             
-            if (!isNaN(num)) {
-              tempCanvas.width = w*0.8; tempCanvas.height = rowHeight;
-              tempCtx.drawImage(img, w*0.2, currentY, w*0.8, rowHeight, 0, 0, w*0.8, rowHeight);
-              let gCount = 0, pCount = 0;
-              const dr = tempCtx.getImageData(0,0,w*0.8,rowHeight).data;
-              for(let p=0; p<dr.length; p+=4) {
-                if (dr[p+1] > 150 && dr[p] < 100 && dr[p+2] < 100) gCount++;
-                if (dr[p] > 100 && dr[p+2] > 150 && dr[p+1] < 100) pCount++;
-              }
-              const good = gCount > 20 ? 1 : 0;
-              const bad = pCount > 20 ? 1 : 0;
-              results.push({ num, good, bad });
-              tbody.innerHTML += `<tr>
-                <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
-                <td><input type="number" class="cell-input" value="${good}"></td>
-                <td><input type="number" class="cell-input" value="${bad}"></td>
-              </tr>`;
+            tempCanvas.width = w*0.8; tempCanvas.height = rowHeight;
+            tempCtx.drawImage(img, w*0.2, currentY, w*0.8, rowHeight, 0, 0, w*0.8, rowHeight);
+            let gCount = 0, pCount = 0;
+            const dr = tempCtx.getImageData(0,0,w*0.8,rowHeight).data;
+            for(let p=0; p<dr.length; p+=4) {
+              if (dr[p+1] > 150 && dr[p] < 100 && dr[p+2] < 100) gCount++;
+              if (dr[p] > 100 && dr[p+2] > 150 && dr[p+1] < 100) pCount++;
             }
+            const good = gCount > 20 ? 1 : 0;
+            const bad = pCount > 20 ? 1 : 0;
+            results.push({ num, good, bad });
+            tbody.innerHTML += `<tr>
+              <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
+              <td><input type="number" class="cell-input" value="${good}"></td>
+              <td><input type="number" class="cell-input" value="${bad}"></td>
+            </tr>`;
           }
         }
         await worker.terminate();
+        
         statusEl.textContent = "解析完了！間違いがあれば数値を手直しできます。";
         generateInsight(id, results);
-        document.getElementById(`actions${id}`).style.display = 'flex'; // 保存・CSVボタンを表示
+        document.getElementById(`actions${id}`).style.display = 'flex';
         
       } catch (error) {
         statusEl.textContent = "エラーが発生しました。";
+      } finally {
+        document.querySelector(`#tab${id} .btn-analyze`).disabled = false;
       }
     }
 
-    // --- データ保存＆CSV書き出しロジック ---
     function saveData(id) {
       const rows = document.querySelectorAll(`#table${id} tbody tr`);
       if(rows.length === 0) return alert("保存するデータがありません。");
@@ -371,27 +386,21 @@
     function exportCSV(id) {
       const rows = document.querySelectorAll(`#table${id} tbody tr`);
       if(rows.length === 0) return alert("書き出すデータがありません。");
-      
       let csv = [];
       const headers = Array.from(document.querySelectorAll(`#table${id} thead th`)).map(th => th.textContent);
       csv.push(headers.join(','));
-      
       rows.forEach(tr => {
         const rowData = Array.from(tr.querySelectorAll('input')).map(input => `"${input.value}"`);
         csv.push(rowData.join(','));
       });
-      
       const blob = new Blob([csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      
-      // 保存ファイル名に現在時刻を入れる
       const now = new Date();
-      const timeStr = `${now.getMonth()+1}${now.getDate()}_${now.getHours()}${now.getMinutes()}`;
-      link.download = `分析データ_タブ${id}_${timeStr}.csv`;
-      
+      link.download = `分析データ_タブ${id}_${now.getMonth()+1}${now.getDate()}_${now.getHours()}${now.getMinutes()}.csv`;
       link.click();
-    }
+      }
   </script>
 </body>
 </html>
+
