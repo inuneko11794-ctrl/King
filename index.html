@@ -2,170 +2,259 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬指数AI予想（完全自動版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>競馬指数予想（スマホ版）</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 15px; background: #f4f6f9; max-width: 800px; margin: auto; }
-    h1 { font-size: 1.5rem; text-align: center; color: #333; }
-    .upload-area { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    input[type="file"] { margin-bottom: 15px; width: 100%; font-size: 16px; }
-    button { padding: 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
-    button:disabled { background: #ccc; }
-    #status { margin-top: 15px; font-weight: bold; color: #007bff; text-align: center; }
-    table { border-collapse: collapse; width: 100%; margin-top: 1rem; background: white; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; white-space: nowrap; }
-    th { background: #2c3e50; color: white; }
-    .horse-name { text-align: left; font-weight: bold; white-space: normal; }
-    .top1 { background: #ffebee !important; }
-    .top2 { background: #fff3e0 !important; }
-    .top3 { background: #f1f8e9 !important; }
-    .score { font-weight: bold; color: #d32f2f; font-size: 15px; }
-    #tempCanvas { display: none; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f5f5f5; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 12px; }
+    h1 { font-size: 1.4rem; text-align: center; margin: 8px 0 16px; color: #2e7d32; }
+    .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    button, .btn { display: block; width: 100%; padding: 14px; font-size: 1rem; border: none; border-radius: 8px; background: #4CAF50; color: white; font-weight: bold; margin: 8px 0; cursor: pointer; }
+    button.secondary { background: #607d8b; }
+    button.danger { background: #e53935; }
+    input, select, textarea { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+    .horse-row { display: grid; grid-template-columns: 50px 1fr 60px 50px 50px 50px 50px; gap: 4px; margin-bottom: 6px; align-items: center; font-size: 0.85rem; }
+    .horse-row input { padding: 6px; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #eee; }
+    th { background: #4CAF50; color: white; }
+    .rank1 { background: #fff8e1; font-weight: bold; }
+    .rank2 { background: #f1f8e9; }
+    .rank3 { background: #e8f5e9; }
+    .score { font-weight: bold; color: #d32f2f; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+    .tabs button { flex: 1; margin: 0; padding: 10px; background: #e0e0e0; color: #333; }
+    .tabs button.active { background: #4CAF50; color: white; }
+    .hidden { display: none; }
+    #ocrProgress { font-size: 0.85rem; color: #666; text-align: center; margin: 8px 0; }
+    .history-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; }
+    .history-item:active { background: #f0f0f0; }
+    .small { font-size: 0.8rem; color: #666; }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>🏇 競馬指数予想</h1>
 
-  <h1>🐎 競馬指数AI予想ツール</h1>
-  
-  <div class="upload-area">
-    <p style="margin-top:0; font-size: 14px; color: #666;">「指数一覧比較」の画像を選択すると、AIが全データを自動抽出してオリジナル予想スコアを算出します。</p>
-    <input type="file" id="imageInput" accept="image/*">
-    <button id="btnAnalyze">画像を解析して予想を生成</button>
-    <div id="status"></div>
+    <div class="tabs">
+      <button id="tabPredict" class="active" onclick="showTab('predict')">予想</button>
+      <button id="tabHistory" onclick="showTab('history')">履歴</button>
+    </div>
+
+    <!-- 予想タブ -->
+    <div id="predictTab">
+      <div class="card">
+        <h3>1. 画像から読み取り（任意）</h3>
+        <input type="file" id="imageInput" accept="image/*" capture="environment">
+        <button onclick="runOCR()">OCR実行</button>
+        <div id="ocrProgress"></div>
+        <pre id="ocrResult" style="font-size:0.75rem; background:#f9f9f9; padding:8px; border-radius:6px; max-height:150px; overflow:auto; white-space:pre-wrap;"></pre>
+      </div>
+
+      <div class="card">
+        <h3>2. 馬データ入力 / 修正</h3>
+        <input type="text" id="raceName" placeholder="レース名（例: 2歳未勝利）">
+        <div id="horsesContainer"></div>
+        <button class="secondary" onclick="addHorse()">＋ 馬を追加</button>
+        <button onclick="calculateAndShow()">予想計算</button>
+      </div>
+
+      <div class="card" id="resultCard" style="display:none;">
+        <h3>予想順位</h3>
+        <div id="ranking"></div>
+        <button onclick="saveRace()">このレースを保存</button>
+      </div>
+    </div>
+
+    <!-- 履歴タブ -->
+    <div id="historyTab" class="hidden">
+      <div class="card">
+        <h3>保存済みレース</h3>
+        <div id="historyList"></div>
+        <button class="danger" onclick="clearHistory()">履歴を全削除</button>
+      </div>
+    </div>
   </div>
 
-  <div id="result"></div>
-  <canvas id="tempCanvas"></canvas>
-
   <script>
-    // 独自のスコア計算ロジック
-    function calculateScore(horse) {
-      const score = (horse.sa * 0.4) + (horse.ag * 0.25) + (horse.sp * 0.2) + (horse.s * 0.1) + ((20 - horse.pop) * 0.5);
-      return Math.round(score * 10) / 10;
+    const STORAGE_KEY = 'keiba_races_v1';
+    let currentHorses = [];
+    let currentRanking = [];
+
+    function showTab(tab) {
+      document.getElementById('predictTab').classList.toggle('hidden', tab !== 'predict');
+      document.getElementById('historyTab').classList.toggle('hidden', tab !== 'history');
+      document.getElementById('tabPredict').classList.toggle('active', tab === 'predict');
+      document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
+      if (tab === 'history') renderHistory();
     }
 
-    document.getElementById('btnAnalyze').addEventListener('click', async () => {
-      const fileInput = document.getElementById('imageInput');
-      const statusEl = document.getElementById('status');
-      const resultEl = document.getElementById('result');
-      const btn = document.getElementById('btnAnalyze');
+    function addHorse(data = {}) {
+      const div = document.createElement('div');
+      div.className = 'horse-row';
+      div.innerHTML = `
+        <input type="number" placeholder="番" value="${data.number || ''}" min="1" max="18">
+        <input type="text" placeholder="馬名" value="${data.name || ''}">
+        <input type="number" placeholder="人気" value="${data.popularity || ''}" min="1">
+        <input type="number" placeholder="SP" value="${data.sp || ''}">
+        <input type="number" placeholder="AG" value="${data.ag || ''}">
+        <input type="number" placeholder="S" value="${data.s || ''}">
+        <input type="number" placeholder="SA" value="${data.sa || ''}">
+      `;
+      document.getElementById('horsesContainer').appendChild(div);
+    }
 
-      if (!fileInput.files[0]) return alert("画像を選択してください");
+    function getHorsesFromForm() {
+      const rows = document.querySelectorAll('.horse-row');
+      const horses = [];
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const number = parseInt(inputs[0].value);
+        const name = inputs[1].value.trim();
+        if (!number || !name) return;
+        horses.push({
+          number,
+          name,
+          popularity: parseInt(inputs[2].value) || 16,
+          sp: parseFloat(inputs[3].value) || 0,
+          ag: parseFloat(inputs[4].value) || 0,
+          s: parseFloat(inputs[5].value) || 0,
+          sa: parseFloat(inputs[6].value) || 0
+        });
+      });
+      return horses;
+    }
 
-      btn.disabled = true;
-      statusEl.textContent = "AIで画像を解析中...（約10〜20秒）";
-      resultEl.innerHTML = "";
+    function calculateScore(h) {
+      const sa = h.sa || 0;
+      const ag = h.ag || 0;
+      const sp = h.sp || 0;
+      const s  = h.s || 0;
+      const pop = h.popularity || 16;
+      return Math.round((sa * 0.40 + ag * 0.25 + sp * 0.20 + s * 0.10 + Math.max(0, 16 - pop) * 0.8) * 10) / 10;
+    }
 
-      const img = new Image();
-      img.src = URL.createObjectURL(fileInput.files[0]);
-      
-      img.onload = async () => {
-        const canvas = document.getElementById('tempCanvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+    function calculateAndShow() {
+      currentHorses = getHorsesFromForm();
+      if (currentHorses.length === 0) {
+        alert('馬データを入力してください');
+        return;
+      }
+      currentRanking = currentHorses.map(h => ({ ...h, score: calculateScore(h) }))
+        .sort((a, b) => b.score - a.score);
 
-        // 前処理：ヒートマップの色（赤や黄色など）を白に飛ばし、文字だけを黒に残す
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        for (let i = 0; i < imgData.data.length; i += 4) {
-          const avg = (imgData.data[i] + imgData.data[i+1] + imgData.data[i+2]) / 3;
-          const val = avg < 140 ? 0 : 255; // 濃い文字だけを抽出
-          imgData.data[i] = imgData.data[i+1] = imgData.data[i+2] = val;
-        }
-        ctx.putImageData(imgData, 0, 0);
+      let html = '<table><tr><th>順位</th><th>馬番</th><th>馬名</th><th>人気</th><th>SA</th><th>スコア</th></tr>';
+      currentRanking.forEach((h, i) => {
+        const cls = i === 0 ? 'rank1' : i === 1 ? 'rank2' : i === 2 ? 'rank3' : '';
+        html += `<tr class="${cls}">
+          <td>${i + 1}</td><td>${h.number}</td><td>${h.name}</td>
+          <td>${h.popularity}</td><td>${h.sa}</td>
+          <td class="score">${h.score}</td></tr>`;
+      });
+      html += '</table>';
+      document.getElementById('ranking').innerHTML = html;
+      document.getElementById('resultCard').style.display = 'block';
+    }
 
-        try {
-          const worker = await Tesseract.createWorker('jpn');
-          await worker.setParameters({ tessedit_pageseg_mode: '6' }); // ブロック全体のテキストとして認識
-          const { data: { text } } = await worker.recognize(canvas);
-          await worker.terminate();
+    function saveRace() {
+      if (currentRanking.length === 0) {
+        alert('先に予想計算してください');
+        return;
+      }
+      const raceName = document.getElementById('raceName').value.trim() || '無名レース';
+      const races = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      races.unshift({
+        id: Date.now(),
+        name: raceName,
+        date: new Date().toLocaleString('ja-JP'),
+        horses: currentRanking
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(races));
+      alert('保存しました！');
+    }
 
-          // 解析テキストの行分割
-          const lines = text.split('\n');
-          const horses = [];
+    function renderHistory() {
+      const races = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const container = document.getElementById('historyList');
+      if (races.length === 0) {
+        container.innerHTML = '<p class="small">保存されたレースはありません</p>';
+        return;
+      }
+      container.innerHTML = races.map(r => `
+        <div class="history-item" onclick="loadRace(${r.id})">
+          <strong>${r.name}</strong><br>
+          <span class="small">${r.date}　${r.horses.length}頭</span>
+        </div>
+      `).join('');
+    }
 
-          for (const line of lines) {
-            const cleanLine = line.replace(/[口□_]/g, '').trim();
-            const parts = cleanLine.split(/\s+/);
-            
-            // 短すぎる行や、先頭が数字（馬番）じゃない行は無視
-            if (parts.length < 8 || isNaN(parseInt(parts[0]))) continue;
+    function loadRace(id) {
+      const races = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const race = races.find(r => r.id === id);
+      if (!race) return;
+      document.getElementById('raceName').value = race.name;
+      document.getElementById('horsesContainer').innerHTML = '';
+      race.horses.forEach(h => addHorse(h));
+      currentRanking = race.horses;
+      calculateAndShow();
+      showTab('predict');
+    }
 
-            // OCRの誤認対策 (Oを0に変換など)
-            const parseSafe = (str) => {
-              const num = parseFloat(str.replace(/[Oo]/g, '0'));
-              return isNaN(num) ? 0 : num;
-            };
+    function clearHistory() {
+      if (confirm('履歴をすべて削除しますか？')) {
+        localStorage.removeItem(STORAGE_KEY);
+        renderHistory();
+      }
+    }
 
-            const horseNum = parseInt(parts[0]);
-            
-            // 【逆算パースロジック】 
-            // 後ろから数字を拾うことで、馬名にスペースが混ざっていてもズレない
-            const nums = [];
-            for (let i = parts.length - 1; i >= 1; i--) {
-               const val = parseSafe(parts[i]);
-               if (!isNaN(parseFloat(parts[i].replace(/[Oo]/g, '0')))) {
-                 nums.unshift(val);
-               } else {
-                 break; // 数字以外（馬名の末尾など）にぶつかったら終了
-               }
+    async function runOCR() {
+      const file = document.getElementById('imageInput').files[0];
+      if (!file) {
+        alert('画像を選択してください');
+        return;
+      }
+      const progressEl = document.getElementById('ocrProgress');
+      const resultEl = document.getElementById('ocrResult');
+      progressEl.textContent = '読み取り中...（初回は時間がかかります）';
+      resultEl.textContent = '';
+
+      try {
+        const worker = await Tesseract.createWorker('jpn', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              progressEl.textContent = `認識中... ${Math.round(m.progress * 100)}%`;
             }
-
-            // 指数は最低6項目（人気, SP, AG, S, A, SA）必要
-            if (nums.length < 6) continue;
-
-            // 馬名の抽出（先頭の馬番と、後ろの数値群の間にある文字列）
-            let name = parts.slice(1, parts.length - nums.length).join("");
-            name = name.replace(/\d[牡牝せん].*/, ""); // "2牡"などの不要な性齢をカット
-
-            // 後ろから拾った数値配列の前半6つを各指数に割り当て
-            horses.push({
-              number: horseNum,
-              name: name,
-              pop: nums[0],
-              sp: nums[1],
-              ag: nums[2],
-              s: nums[3],
-              a: nums[4],
-              sa: nums[5]
-            });
           }
+        });
+        const { data: { text } } = await worker.recognize(file);
+        resultEl.textContent = text;
+        progressEl.textContent = '完了。内容を確認して手動で入力してください。';
+        await worker.terminate();
+      } catch (e) {
+        progressEl.textContent = 'エラー: ' + e.message;
+      }
+    }
 
-          if (horses.length === 0) throw new Error("データを抽出できませんでした");
+    // 初期状態で空の行を3つ用意
+    for (let i = 0; i < 3; i++) addHorse();
 
-          // スコア計算とソート
-          horses.forEach(h => h.score = calculateScore(h));
-          const sorted = horses.sort((a, b) => b.score - a.score);
-
-          // 画面にテーブル出力
-          let html = `<table><tr><th>印</th><th>番</th><th>馬名</th><th>人</th><th>SP</th><th>AG</th><th>SA</th><th>スコア</th></tr>`;
-          sorted.forEach((h, i) => {
-            let trClass = i === 0 ? 'top1' : (i === 1 ? 'top2' : (i === 2 ? 'top3' : ''));
-            let mark = i === 0 ? '◎' : (i === 1 ? '◯' : (i === 2 ? '▲' : ''));
-            
-            html += `<tr class="${trClass}">
-              <td style="color:red; font-weight:bold;">${mark}</td>
-              <td>${h.number}</td>
-              <td class="horse-name">${h.name}</td>
-              <td>${h.pop}</td><td>${h.sp}</td><td>${h.ag}</td><td>${h.sa}</td>
-              <td class="score">${h.score.toFixed(1)}</td>
-            </tr>`;
-          });
-          html += `</table>`;
-          
-          resultEl.innerHTML = html;
-          statusEl.textContent = `解析成功！ (${horses.length}頭のデータを抽出)`;
-          
-        } catch (error) {
-          statusEl.textContent = "読み取りエラー。画像が不鮮明か、形式が異なります。";
-          console.error(error);
-        } finally {
-          btn.disabled = false;
-        }
-      };
-    });
+    // サンプルデータを読み込むボタン（任意）
+    function loadSample() {
+      const sample = [
+        {number:5, name:"マルモリマイベスト", popularity:1, sp:89, ag:43, s:39, sa:97},
+        {number:10, name:"ダイユウエゾフジ", popularity:10, sp:94, ag:82, s:36, sa:98},
+        {number:7, name:"シムサラビン", popularity:5, sp:59, ag:100, s:42, sa:94},
+        {number:13, name:"ジャスコヒラリアス", popularity:6, sp:82, ag:45, s:46, sa:98},
+        {number:11, name:"エリーマイラヴ", popularity:9, sp:70, ag:52, s:45, sa:95}
+      ];
+      document.getElementById('raceName').value = "サンプルレース";
+      document.getElementById('horsesContainer').innerHTML = '';
+      sample.forEach(h => addHorse(h));
+    }
+    // デバッグ用にコンソールから呼べるように
+    window.loadSample = loadSample;
   </script>
 </body>
 </html>
