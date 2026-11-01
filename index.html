@@ -3,42 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI解析（即時テーブル表示版）</title>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <title>競馬AI解析（超高速・手入力モード）</title>
   <style>
     body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 700px; margin: auto; }
-    h1 { font-size: 1.2rem; text-align: center; color: #333; margin-bottom: 20px; }
+    h1 { font-size: 1.2rem; text-align: center; color: #333; margin-bottom: 15px; }
+    
     .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; }
     .tab { padding: 10px 15px; cursor: pointer; font-weight: bold; color: #666; background: #e9ecef; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; flex: 1; text-align: center; font-size: 13px; }
     .tab.active { background: #fff; color: #d32f2f; border-top: 3px solid #d32f2f; border-bottom: 2px solid #fff; margin-bottom: -2px; }
     .tab-content { display: none; background: #fff; padding: 15px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .tab-content.active { display: block; }
-    input[type="file"] { width: 100%; margin-bottom: 15px; font-size: 14px; }
-    .slider-group { margin-bottom: 10px; background: #f8f9fa; padding: 10px; border-radius: 6px; }
-    .slider-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #333; }
-    input[type="range"] { width: 100%; margin-bottom: 5px; }
-    .preview-canvas { width: 100%; height: auto; border: 2px solid #ccc; display: block; margin-bottom: 10px; }
-    #tempCanvas { display: none; }
-    button { padding: 14px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-bottom: 10px; }
-    .btn-analyze { background: #28a745; }
-    .btn-save { background: #6c757d; font-size: 13px; padding: 10px; }
+    
+    .head-count-box { background: #e9ecef; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: bold; font-size: 14px; }
+    select { padding: 6px; font-size: 14px; margin-left: 10px; }
+    
+    button { padding: 14px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-top: 10px; margin-bottom: 10px; }
+    .btn-calc { background: #28a745; }
     .btn-csv { background: #007bff; font-size: 13px; padding: 10px; }
-    button:disabled { background: #ccc; }
-    .status { text-align: center; font-weight: bold; color: #d32f2f; margin-bottom: 10px; font-size: 14px; white-space: pre-wrap; }
+    
     .commentary { background: #f0f4c3; border-left: 5px solid #827717; padding: 15px; margin-top: 15px; border-radius: 4px; font-size: 14px; line-height: 1.6; display: none; color: #333; font-weight: 500; }
-    .table-wrapper { overflow-x: auto; margin-top: 10px; margin-bottom: 15px; display: none; } /* 初期非表示 */
+    
+    .table-wrapper { overflow-x: auto; margin-top: 10px; margin-bottom: 15px; }
     table { border-collapse: collapse; width: 100%; font-size: 12px; background: white; min-width: 500px; }
-    th, td { border: 1px solid #ccc; padding: 2px; text-align: center; }
+    th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
     th { background: #2c3e50; color: white; padding: 6px; }
     input.cell-input { width: 100%; box-sizing: border-box; padding: 6px 2px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; }
     input.name-input { text-align: left; min-width: 110px; padding-left: 6px; }
-    .loading-row input { background: #e3f2fd; } /* 読み込み中の行は青っぽく */
-    .action-buttons { display: flex; gap: 10px; display: none; }
   </style>
 </head>
 <body>
 
-  <h1>🐎 競馬AI解析（即時表示版）</h1>
+  <h1>🐎 競馬AI解析（超高速・手入力モード）</h1>
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('tab1')">① 指数一覧</div>
@@ -48,93 +43,56 @@
 
   <!-- ① 指数一覧 -->
   <div id="tab1" class="tab-content active">
-    <input type="file" id="file1" accept="image/*">
-    <div class="slider-group">
-      <label>表の開始位置: <span id="valStart1">12.0</span>%</label>
-      <input type="range" id="start1" min="5" max="30" step="0.1" value="12.0">
-      <label>1行分の高さ: <span id="valHeight1">5.0</span>%</label>
-      <input type="range" id="height1" min="2" max="10" step="0.1" value="5.0">
+    <div class="head-count-box">
+      出走頭数: <select id="count1" onchange="buildTable(1)"><option value="16" selected>16頭</option></select>
     </div>
-    <canvas id="preview1" class="preview-canvas"></canvas>
-    
-    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count1" class="horse-count" style="padding:4px;"></select></label>
-    <button class="btn-analyze" id="btn1" style="margin-top:10px;" onclick="analyzeData(1)">データを読み取る</button>
-    <div id="status1" class="status"></div>
-    <div id="commentary1" class="commentary"></div>
-    
-    <div class="table-wrapper" id="wrap1">
+    <div class="table-wrapper">
       <table id="table1">
         <thead><tr><th>番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>SA</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div id="actions1" class="action-buttons">
-      <button class="btn-save" onclick="saveData(1)">保存</button>
-      <button class="btn-csv" onclick="exportCSV(1)">CSV出力</button>
-    </div>
+    <button class="btn-calc" onclick="analyzeAndRun(1)">入力データから展開を推測する</button>
+    <div id="commentary1" class="commentary"></div>
+    <button class="btn-csv" onclick="exportCSV(1)">CSV出力</button>
   </div>
 
   <!-- ② 偏差値 -->
   <div id="tab2" class="tab-content">
-    <input type="file" id="file2" accept="image/*">
-    <div class="slider-group">
-      <label>表の開始位置: <span id="valStart2">15.0</span>%</label>
-      <input type="range" id="start2" min="5" max="30" step="0.1" value="15.0">
-      <label>1行分の高さ: <span id="valHeight2">5.0</span>%</label>
-      <input type="range" id="height2" min="2" max="10" step="0.1" value="5.0">
+    <div class="head-count-box">
+      出走頭数: <select id="count2" onchange="buildTable(2)"><option value="16" selected>16頭</option></select>
     </div>
-    <canvas id="preview2" class="preview-canvas"></canvas>
-    
-    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count2" class="horse-count" style="padding:4px;"></select></label>
-    <button class="btn-analyze" id="btn2" style="margin-top:10px;" onclick="analyzeData(2)">データを読み取る</button>
-    <div id="status2" class="status"></div>
-    <div id="commentary2" class="commentary"></div>
-    
-    <div class="table-wrapper" id="wrap2">
+    <div class="table-wrapper">
       <table id="table2">
         <thead><tr><th>番</th><th>総合(偏)</th><th>実績</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div id="actions2" class="action-buttons">
-      <button class="btn-save" onclick="saveData(2)">保存</button>
-      <button class="btn-csv" onclick="exportCSV(2)">CSV出力</button>
-    </div>
+    <button class="btn-calc" onclick="analyzeAndRun(2)">入力データから本質を見抜く</button>
+    <div id="commentary2" class="commentary"></div>
+    <button class="btn-csv" onclick="exportCSV(2)">CSV出力</button>
   </div>
 
   <!-- ③ 変わり身 -->
   <div id="tab3" class="tab-content">
-    <input type="file" id="file3" accept="image/*">
-    <div class="slider-group">
-      <label>表の開始位置: <span id="valStart3">15.0</span>%</label>
-      <input type="range" id="start3" min="5" max="30" step="0.1" value="15.0">
-      <label>1行分の高さ: <span id="valHeight3">5.0</span>%</label>
-      <input type="range" id="height3" min="2" max="10" step="0.1" value="5.0">
+    <div class="head-count-box">
+      出走頭数: <select id="count3" onchange="buildTable(3)"><option value="16" selected>16頭</option></select>
     </div>
-    <canvas id="preview3" class="preview-canvas"></canvas>
-    
-    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count3" class="horse-count" style="padding:4px;"></select></label>
-    <button class="btn-analyze" id="btn3" style="margin-top:10px;" onclick="analyzeData(3)">データを読み取る</button>
-    <div id="status3" class="status"></div>
-    <div id="commentary3" class="commentary"></div>
-    
-    <div class="table-wrapper" id="wrap3">
+    <div class="table-wrapper">
       <table id="table3">
         <thead><tr><th>番</th><th>緑(良)</th><th>紫(悪)</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div id="actions3" class="action-buttons">
-      <button class="btn-save" onclick="saveData(3)">保存</button>
-      <button class="btn-csv" onclick="exportCSV(3)">CSV出力</button>
-    </div>
+    <button class="btn-calc" onclick="analyzeAndRun(3)">状態マークから波乱度を分析</button>
+    <div id="commentary3" class="commentary"></div>
+    <button class="btn-csv" onclick="exportCSV(3)">CSV出力</button>
   </div>
 
-  <canvas id="tempCanvas"></canvas>
-
   <script>
-    // プルダウン生成
-    document.querySelectorAll('.horse-count').forEach(select => {
+    // 5〜18頭のプルダウン生成
+    document.querySelectorAll('select').forEach(select => {
+      select.innerHTML = "";
       for(let i = 5; i <= 18; i++) {
         const opt = document.createElement('option');
         opt.value = i; opt.text = `${i}頭`;
@@ -150,64 +108,31 @@
       document.getElementById(tabId).classList.add('active');
     }
 
-    const state = {
-      1: { img: new Image(), canvasId: 'preview1', startId: 'start1', heightId: 'height1', countId: 'count1' },
-      2: { img: new Image(), canvasId: 'preview2', startId: 'start2', heightId: 'height2', countId: 'count2' },
-      3: { img: new Image(), canvasId: 'preview3', startId: 'start3', heightId: 'height3', countId: 'count3' }
-    };
-    const tempCanvas = document.getElementById('tempCanvas');
-    const tempCtx = tempCanvas.getContext('2d');
-
-    function drawPreview(id) {
-      const s = state[id];
-      if (!s.img.src) return;
-      const cvs = document.getElementById(s.canvasId);
-      const ctx = cvs.getContext('2d');
-      cvs.width = s.img.width; cvs.height = s.img.height;
-      ctx.drawImage(s.img, 0, 0);
-
-      const start = document.getElementById(s.startId).value;
-      const height = document.getElementById(s.heightId).value;
-      const count = document.getElementById(s.countId).value;
-      const startY = s.img.height * (start / 100);
-      const rowHeight = s.img.height * (height / 100);
-
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = Math.max(3, s.img.width / 200);
-      for (let i = 0; i <= count; i++) {
-        const y = startY + (rowHeight * i);
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(s.img.width, y); ctx.stroke();
+    // テーブルの行を動的に生成
+    function buildTable(id) {
+      const count = parseInt(document.getElementById(`count${id}`).value);
+      const tbody = document.querySelector(`#table${id} tbody`);
+      tbody.innerHTML = '';
+      
+      for(let i = 0; i < count; i++) {
+        let cols = "";
+        let defaultNum = i + 1; // 馬番の初期値を1, 2, 3...にする
+        if(id === 1) cols = `<td><input type="number" class="cell-input" style="width:35px;" value="${defaultNum}"></td><td><input type="text" class="cell-input name-input" placeholder="馬名"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td>`;
+        if(id === 2) cols = `<td><input type="number" class="cell-input" style="width:40px;" value="${defaultNum}"></td><td><input type="number" class="cell-input"></td><td><input type="number" class="cell-input"></td>`;
+        if(id === 3) cols = `<td><input type="number" class="cell-input" style="width:40px;" value="${defaultNum}"></td><td><input type="number" class="cell-input" value="0"></td><td><input type="number" class="cell-input" value="0"></td>`;
+        tbody.innerHTML += `<tr>${cols}</tr>`;
       }
     }
 
-    [1, 2, 3].forEach(id => {
-      document.getElementById(`file${id}`).addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          state[id].img.onload = () => drawPreview(id);
-          state[id].img.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-      document.getElementById(state[id].startId).addEventListener('input', e => {
-        document.getElementById(`valStart${id}`).textContent = e.target.value; drawPreview(id);
-      });
-      document.getElementById(state[id].heightId).addEventListener('input', e => {
-        document.getElementById(`valHeight${id}`).textContent = e.target.value; drawPreview(id);
-      });
-      document.getElementById(state[id].countId).addEventListener('change', () => drawPreview(id));
-    });
+    // 初期化時に全タブのテーブルを作成
+    [1, 2, 3].forEach(id => buildTable(id));
 
-    // 解析レポート生成
-    function generateInsight(id) {
+    // 入力データに基づいたAI考察生成
+    function analyzeAndRun(id) {
       const div = document.getElementById(`commentary${id}`);
-      let text = "<b>【AI予測・考察】</b><br><br>";
-      
-      // テーブルから現在の値を取得
       const rows = document.querySelectorAll(`#table${id} tbody tr`);
       const results = [];
+      
       rows.forEach(tr => {
         const inputs = tr.querySelectorAll('input');
         if(id === 1 && inputs[0].value) results.push({ num: inputs[0].value, name: inputs[1].value, pop: parseFloat(inputs[2].value)||0, sp: parseFloat(inputs[3].value)||0, ag: parseFloat(inputs[4].value)||0, sa: parseFloat(inputs[5].value)||0 });
@@ -215,152 +140,31 @@
         if(id === 3 && inputs[0].value) results.push({ num: inputs[0].value, good: parseFloat(inputs[1].value)||0, bad: parseFloat(inputs[2].value)||0 });
       });
 
+      if(results.length === 0) return alert("データを入力してください。");
+
+      let text = "<b>【AI予測・考察】</b><br><br>";
       if (id === 1) { 
         const highSA = results.filter(r => r.sa >= 85 && r.pop >= 6);
-        if(highSA.length > 0) text += `🎯 穴馬候補：<b>${highSA.map(r => r.name || r.num+"番").join("、")}</b><br>`;
-        else text += `🎯 堅実なレース構成です。<br>`;
+        if(highSA.length > 0) text += `🎯 穴馬候補：<b>${highSA.map(r => r.name || r.num+"番").join("、")}</b>（SA値優秀かつ人気薄）<br>馬券の旨味が非常に高い一頭です。`;
+        else text += `🎯 指数値と人気が概ねリンクしており、波乱の少ない堅実な構成です。`;
       } 
       else if (id === 2) { 
         const rising = results.filter(r => r.devT - r.devA >= 10);
-        if(rising.length > 0) text += `📈 勢いあり：<b>${rising.map(r=>r.num+"番").join("、")}</b><br>`;
-        else text += `⚖️ 波乱少なめの偏差値構成です。<br>`;
+        if(rising.length > 0) text += `📈 勢い・上昇度あり：<b>${rising.map(r=>r.num+"番").join("、")}</b><br>過去の実績以上に現在の状態が良い注目馬です。`;
+        else text += `⚖️ 実績と現在の状態がしっかりリンクした堅実な決着になりそうです。`;
       } 
       else if (id === 3) { 
         const goodH = results.filter(r => r.good > 0);
-        if(goodH.length > 0) text += `✨ 気配良し：<b>${goodH.map(r=>r.num+"番").join("、")}</b><br>`;
-        else text += `📊 特筆すべき変わり身はありません。<br>`;
+        const badH = results.filter(r => r.bad > 0);
+        if(goodH.length > 0 && badH.length > 0) text += `⚡️ 好走・不安要素が混在しており<b>波乱注意</b>のレースです。`;
+        else if(goodH.length > 0) text += `✨ 変わり身（緑マーク）あり：<b>${goodH.map(r=>r.num+"番").join("、")}</b>の上積みに期待できます。`;
+        else text += `📊 特筆すべき変わり身はなくフラットな地力勝負です。`;
       }
       div.innerHTML = text;
       div.style.display = 'block';
     }
 
-    async function analyzeData(id) {
-      if (!state[id].img.src) return alert("画像を選択してください");
-      
-      const btn = document.getElementById(`btn${id}`);
-      const statusEl = document.getElementById(`status${id}`);
-      const wrap = document.getElementById(`wrap${id}`);
-      const tbody = document.querySelector(`#table${id} tbody`);
-      const count = parseInt(document.getElementById(state[id].countId).value);
-      
-      btn.disabled = true;
-      document.getElementById(`commentary${id}`).style.display = 'none';
-      document.getElementById(`actions${id}`).style.display = 'none';
-      
-      // ★ 最強のUX改善：ボタンを押した瞬間に「空のテーブル（16行）」を先に出す！
-      wrap.style.display = 'block';
-      tbody.innerHTML = '';
-      for(let i=0; i<count; i++) {
-        let cols = "";
-        if(id === 1) cols = `<td><input type="number" id="c1_${i}_0" class="cell-input" style="width:35px;"></td><td><input type="text" id="c1_${i}_1" class="cell-input name-input"></td><td><input type="number" id="c1_${i}_2" class="cell-input"></td><td><input type="number" id="c1_${i}_3" class="cell-input"></td><td><input type="number" id="c1_${i}_4" class="cell-input"></td><td><input type="number" id="c1_${i}_5" class="cell-input"></td>`;
-        if(id === 2) cols = `<td><input type="number" id="c2_${i}_0" class="cell-input" style="width:40px;"></td><td><input type="number" id="c2_${i}_1" class="cell-input"></td><td><input type="number" id="c2_${i}_2" class="cell-input"></td>`;
-        if(id === 3) cols = `<td><input type="number" id="c3_${i}_0" class="cell-input" style="width:40px;"></td><td><input type="number" id="c3_${i}_1" class="cell-input"></td><td><input type="number" id="c3_${i}_2" class="cell-input"></td>`;
-        tbody.innerHTML += `<tr id="row${id}_${i}" class="loading-row">${cols}</tr>`;
-      }
-
-      statusEl.textContent = "AIエンジン起動中...（初回は通信に数秒かかります）";
-      
-      const img = state[id].img;
-      const startY = img.height * (document.getElementById(state[id].startId).value / 100);
-      const rowHeight = img.height * (document.getElementById(state[id].heightId).value / 100);
-
-      try {
-        const worker = await Tesseract.createWorker('jpn');
-        await worker.setParameters({ tessedit_pageseg_mode: '7' }); 
-
-        for (let i = 0; i < count; i++) {
-          statusEl.textContent = `解析中... (${i+1} / ${count})`;
-          const currentY = startY + (rowHeight * i);
-          
-          try {
-            if (id === 1 || id === 2) {
-              tempCanvas.width = img.width; tempCanvas.height = rowHeight;
-              tempCtx.drawImage(img, 0, currentY, img.width, rowHeight, 0, 0, img.width, rowHeight);
-              
-              // 文字を際立たせる白黒化
-              const d = tempCtx.getImageData(0,0,img.width,rowHeight);
-              for(let p=0; p<d.data.length; p+=4) {
-                const color = Math.min(d.data[p], d.data[p+1], d.data[p+2]) < 110 ? 0 : 255;
-                d.data[p]=d.data[p+1]=d.data[p+2]=color;
-              }
-              tempCtx.putImageData(d, 0, 0);
-
-              const { data: { text } } = await worker.recognize(tempCanvas);
-              
-              if (id === 1) {
-                const kanaMatch = text.match(/[ァ-ヴー]+/g);
-                const name = kanaMatch ? kanaMatch.join("") : "";
-                const numMatch = text.replace(/[Oo]/g, '0').match(/\d+(\.\d+)?/g);
-                
-                if (numMatch && numMatch.length > 0) {
-                  document.getElementById(`c1_${i}_0`).value = parseInt(numMatch[0]); // 馬番
-                  document.getElementById(`c1_${i}_1`).value = name; // 馬名
-                  const tails = numMatch.slice(-6);
-                  while (tails.length < 6) tails.unshift("");
-                  document.getElementById(`c1_${i}_2`).value = tails[0]; // 人気
-                  document.getElementById(`c1_${i}_3`).value = tails[1]; // SP
-                  document.getElementById(`c1_${i}_4`).value = tails[2]; // AG
-                  document.getElementById(`c1_${i}_5`).value = tails[5]; // SA
-                }
-              } 
-              else if (id === 2) {
-                const numMatch = text.replace(/[Oo]/g, '0').match(/\d+(\.\d+)?/g);
-                if (numMatch && numMatch.length > 0) {
-                  document.getElementById(`c2_${i}_0`).value = parseInt(numMatch[0]); // 馬番
-                  const tails = numMatch.slice(-4); 
-                  while (tails.length < 4) tails.unshift("");
-                  document.getElementById(`c2_${i}_1`).value = tails[0]; // 総合
-                  document.getElementById(`c2_${i}_2`).value = tails[3]; // 実績
-                }
-              }
-            } 
-            else if (id === 3) {
-              const w = img.width;
-              // 馬番取得
-              tempCanvas.width = w*0.2; tempCanvas.height = rowHeight;
-              tempCtx.drawImage(img, 0, currentY, w*0.2, rowHeight, 0, 0, w*0.2, rowHeight);
-              const dl = tempCtx.getImageData(0,0,w*0.2,rowHeight);
-              for(let p=0; p<dl.data.length; p+=4) dl.data[p]=dl.data[p+1]=dl.data[p+2] = (dl.data[p]+dl.data[p+1]+dl.data[p+2])/3 < 120 ? 0 : 255;
-              tempCtx.putImageData(dl, 0, 0);
-              const { data: { text } } = await worker.recognize(tempCanvas);
-              const numMatch = text.replace(/[Oo]/g, '0').match(/\d+/);
-              if (numMatch) document.getElementById(`c3_${i}_0`).value = parseInt(numMatch[0]);
-              
-              // マーク判定
-              tempCanvas.width = w*0.8; tempCanvas.height = rowHeight;
-              tempCtx.drawImage(img, w*0.2, currentY, w*0.8, rowHeight, 0, 0, w*0.8, rowHeight);
-              let gCount = 0, pCount = 0;
-              const dr = tempCtx.getImageData(0,0,w*0.8,rowHeight).data;
-              for(let p=0; p<dr.length; p+=4) {
-                if (dr[p+1] > 150 && dr[p] < 100 && dr[p+2] < 100) gCount++;
-                if (dr[p] > 100 && dr[p+2] > 150 && dr[p+1] < 100) pCount++;
-              }
-              document.getElementById(`c3_${i}_1`).value = gCount > 20 ? 1 : 0;
-              document.getElementById(`c3_${i}_2`).value = pCount > 20 ? 1 : 0;
-            }
-          } catch(e) {
-            console.log(i + "行目の解析エラー", e);
-          }
-          // 読み込み終わった行の背景色を白に戻す
-          document.getElementById(`row${id}_${i}`).classList.remove('loading-row');
-        }
-        await worker.terminate();
-        
-        statusEl.innerHTML = "<span style='color:#28a745;'>✅ 解析完了！必要に応じて数値を手直しできます。</span>";
-        generateInsight(id);
-        document.getElementById(`actions${id}`).style.display = 'flex';
-        
-      } catch (error) {
-        statusEl.innerHTML = `<span style="color:red;">❌ エラー発生: ${error.message}<br>ブラウザのメモリ不足の可能性があります。再読み込みしてください。</span>`;
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    function saveData(id) {
-      alert("ブラウザの内部に一時保存しました！");
-    }
-
+    // CSV出力
     function exportCSV(id) {
       const rows = document.querySelectorAll(`#table${id} tbody tr`);
       let csv = [];
