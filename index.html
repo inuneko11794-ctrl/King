@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>セル個別判定テスト（カラーOCR・輝度判定版）</title>
+  <!-- スクリプトのURLを修正しました -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 10px; background: #f9f9f9; }
+    .canvas-container { position: relative; overflow: auto; max-width: 100%; border: 1px solid #ccc; background: #fff; }
+    canvas { touch-action: none; display: block; }
+    .controls { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+    button { padding: 12px 16px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: bold; }
+    .btn-symbol { background: #007bff; }
+    .btn-ocr { background: #28a745; }
+    #result { margin-top: 15px; padding: 15px; background: #e9ecef; border-radius: 6px; font-size: 18px; font-weight: bold; min-height: 2em; white-space: pre-wrap; }
+    #tempCanvas { display: none; }
+  </style>
+</head>
+<body>
+
+  <h3>1. 画像を選択</h3>
+  <input type="file" id="imageInput" accept="image/*">
+
+  <h3>2. 判定したいマスを指でなぞって選択（赤枠）</h3>
+  <div class="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <button class="btn-symbol" id="btnSymbol">マーク・記号判定</button>
+    <button class="btn-ocr" id="btnOcr">文字読み取り（馬名・数字）</button>
+  </div>
+
+  <div id="result">結果がここに表示されます</div>
+
+  <canvas id="tempCanvas"></canvas>
+
+  <script>
+    const input = document.getElementById('imageInput');
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const resultEl = document.getElementById('result');
+    const tempCanvas = document.getElementById('tempCanvas');
+    const tempCtx = tempCanvas.getContext('2d');
+
+    let img = new Image();
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let rect = { x: 0, y: 0, w: 0, h: 0 };
+
+    // 画像読み込み
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          rect = { x: 0, y: 0, w: 0, h: 0 };
+          resultEl.textContent = "画像が読み込まれました。マスを赤枠で囲んでください。";
+        }
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 座標取得
+    function getPos(e) {
+      const bRect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const scaleX = canvas.width / bRect.width;
+      const scaleY = canvas.height / bRect.height;
+      return {
+        x: (clientX - bRect.left) * scaleX,
+        y: (clientY - bRect.top) * scaleY
+      };
+    }
+
+    // 描画イベント
+    function startDraw(e) {
+      if (!img.src) return;
+      e.preventDefault();
+      isDrawing = true;
+      const pos = getPos(e);
+      startX = pos.x;
+      startY = pos.y;
+    }
+
+    function moveDraw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      rect.x = Math.min(startX, pos.x);
+      rect.y = Math.min(startY, pos.y);
+      rect.w = Math.abs(pos.x - startX);
+      rect.h = Math.abs(pos.y - startY);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+    }
+
+    function endDraw() {
+      isDrawing = false;
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', moveDraw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw, {passive: false});
+    canvas.addEventListener('touchmove', moveDraw, {passive: false});
+    canvas.addEventListener('touchend', endDraw);
+
+    // --- ボタン1: マーク・記号判定（非背景ピクセル比率ベース） ---
+    document.getElementById('btnSymbol').addEventListener('click', () => {
+      if (rect.w === 0 || rect.h === 0) {
+        return alert("画像上で判定したいマスを赤枠で囲んでください");
+      }
+
+      tempCanvas.width = rect.w;
+      tempCanvas.height = rect.h;
+      tempCtx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+      
+      const imgData = tempCtx.getImageData(0, 0, rect.w, rect.h);
+      const pixels = imgData.data;
+
+      let coloredPixelCount = 0;
+      const totalPixels = pixels.length / 4;
+
+      for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i];
+        const g = pixels[i+1];
+        const b = pixels[i+2];
+
+        const avg = (r + g + b) / 3;
+
+        // 白〜薄い灰色（背景候補：190以上）ではない「濃い色・有彩色」をカウント
+        if (avg < 190) {
+          coloredPixelCount++;
+        }
+      }
+
+      const ratio = (coloredPixelCount / totalPixels) * 100;
+      let resultText = "空欄 (マークなし)";
+      
+      // マスの中に白以外の要素が5%以上あれば何かしらのマーク（緑丸・チェック等）があると判定
+      if (ratio > 5) {
+        resultText = "判定: マーク・記号あり";
+      }
+
+      resultEl.textContent = `${resultText}\n(参考: 有色ピクセル割合 ${Math.round(ratio)}%)`;
+    });
+
+    // --- ボタン2: 文字OCR（カラー対応版） ---
+    document.getElementById('btnOcr').addEventListener('click', async () => {
+      if (rect.w === 0 || rect.h === 0) {
+        return alert("画像上でテキストのマスを赤枠で囲んでください");
+      }
+      
+      resultEl.textContent = 'OCR読み取り中...';
+
+      tempCanvas.width = rect.w;
+      tempCanvas.height = rect.h;
+      // 2値化処理を完全に撤廃し、オリジナル画像をそのまま綺麗に切り出して渡す
+      tempCtx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+
+      try {
+        const worker = await Tesseract.createWorker('jpn');
+        
+        await worker.setParameters({
+          tessedit_pageseg_mode: '7', // 単一のテキスト行として処理
+        });
+        
+        const { data: { text } } = await worker.recognize(tempCanvas);
+        resultEl.textContent = `OCR結果: ${text.trim()}`;
+        
+        await worker.terminate();
+      } catch (error) {
+        console.error("OCRエラー:", error);
+        resultEl.textContent = "OCR処理中にエラーが発生しました。";
+      }
+    });
+  </script>
+</body>
+</html>
