@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI予想＆自動検証ノート（表コピペ完全対応版）</title>
+  <title>競馬AI予想＆自動検証ノート（自己学習・育成対応版）</title>
   <style>
     body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 800px; margin: auto; color: #333; }
     h1 { font-size: 1.2rem; text-align: center; color: #2c3e50; margin-bottom: 15px; }
@@ -40,6 +40,9 @@
 
     .history-item { background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
     .history-header { font-weight: bold; color: #007bff; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* 学習ステータス用 */
+    .brain-status { background: #e3f2fd; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 15px; color: #0d47a1; border: 1px solid #90caf9; }
   </style>
 </head>
 <body>
@@ -50,11 +53,10 @@
     <div class="tab active" onclick="switchTab('tab1')">①指数</div>
     <div class="tab" onclick="switchTab('tab2')">②偏差値</div>
     <div class="tab" onclick="switchTab('tab3')">③変わり身</div>
-    <div class="tab" onclick="switchTab('tab4')">④血統</div>
-    <div class="tab" onclick="switchTab('tab5')">⑤AI予想</div>
-    <div class="tab" onclick="switchTab('tab6')">⑥待機中</div>
-    <div class="tab" onclick="switchTab('tab7')">⑦検証メモ</div>
-    <div class="tab" onclick="switchTab('tab8')">⑧蓄積一覧</div>
+    <div class="tab" onclick="switchTab('tab4')">④AI予想</div>
+    <div class="tab" onclick="switchTab('tab5')">⑤待機中</div>
+    <div class="tab" onclick="switchTab('tab6')">⑥検証メモ</div>
+    <div class="tab" onclick="switchTab('tab7')">⑦蓄積一覧</div>
   </div>
 
   <!-- ① 指数一覧 -->
@@ -67,7 +69,7 @@
       <button class="btn-primary" onclick="parseIndexTable()">指数データを展開</button>
     </div>
     <div class="table-wrapper"><table id="tableIndex"><thead><tr><th>番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>SA</th></tr></thead><tbody></tbody></table></div>
-    <button class="btn-secondary" onclick="saveRaceData('Index')">この指数データを保存</button>
+    <button class="btn-secondary" onclick="saveRaceData('Index')">保存してクリア（次へ）</button>
   </div>
 
   <!-- ② 偏差値 -->
@@ -80,7 +82,7 @@
       <button class="btn-primary" onclick="parseDevTable()">偏差値データを展開</button>
     </div>
     <div class="table-wrapper"><table id="tableDev"><thead><tr><th>番</th><th>馬名</th><th>総合</th><th>SP</th><th>AG</th><th>実績</th></tr></thead><tbody></tbody></table></div>
-    <button class="btn-secondary" onclick="saveRaceData('Dev')">この偏差値データを保存</button>
+    <button class="btn-secondary" onclick="saveRaceData('Dev')">保存してクリア（次へ）</button>
   </div>
 
   <!-- ③ 変わり身 -->
@@ -93,24 +95,11 @@
       <button class="btn-primary" onclick="parseChangeTable()">変わり身データを展開</button>
     </div>
     <div class="table-wrapper"><table id="tableChange"><thead><tr><th>番</th><th>馬名</th><th>緑(🟢)</th><th>紫(☠)</th></tr></thead><tbody></tbody></table></div>
-    <button class="btn-secondary" onclick="saveRaceData('Change')">この変わり身データを保存</button>
+    <button class="btn-secondary" onclick="saveRaceData('Change')">保存してクリア（次へ）</button>
   </div>
 
-  <!-- ④ 血統 -->
+  <!-- ④ AI予想 -->
   <div id="tab4" class="tab-content">
-    <div class="card">
-      <label>レース名</label>
-      <input type="text" id="raceName4" placeholder="例: 京都11R 天皇賞">
-      <label>「血統・系統」テキストをペースト</label>
-      <textarea id="pasteData4" placeholder="表をそのまま貼り付けてください..."></textarea>
-      <button class="btn-primary" onclick="parseBloodTable()">血統データを展開</button>
-    </div>
-    <div class="table-wrapper"><table id="tableBlood"><thead><tr><th>番</th><th>馬名</th><th>父・系統</th></tr></thead><tbody></tbody></table></div>
-    <button class="btn-secondary" onclick="saveRaceData('Blood')">この血統データを保存</button>
-  </div>
-
-  <!-- ⑤ AI予想 -->
-  <div id="tab5" class="tab-content">
     <div class="card">
       <label>対象レース名</label>
       <input type="text" id="predRaceName" placeholder="例: 京都11R 天皇賞">
@@ -129,14 +118,14 @@
     </div>
   </div>
 
-  <!-- ⑥ 待機中 -->
-  <div id="tab6" class="tab-content">
+  <!-- ⑤ 待機中 -->
+  <div id="tab5" class="tab-content">
     <h3>⏳ 結果待ちレース一覧（待機中）</h3>
     <div id="waitingList"></div>
   </div>
 
-  <!-- ⑦ 検証メモ -->
-  <div id="tab7" class="tab-content">
+  <!-- ⑥ 検証メモ -->
+  <div id="tab6" class="tab-content">
     <div class="card">
       <label>保存済みレースの選択</label>
       <select id="selectRaceForReview" style="width:100%; padding:8px; margin-bottom:10px;" onchange="loadRaceForReview()">
@@ -148,10 +137,11 @@
     </div>
   </div>
 
-  <!-- ⑧ 蓄積一覧 -->
-  <div id="tab8" class="tab-content">
+  <!-- ⑦ 蓄積一覧 -->
+  <div id="tab7" class="tab-content">
     <h3>蓄積されたレース・検証ログ</h3>
     <div id="historyList"></div>
+    <div id="aiBrainStatus" class="brain-status"></div>
     <button class="btn-danger" onclick="clearAllData()" style="margin-top:20px;">全データをクリア</button>
   </div>
 
@@ -161,10 +151,11 @@
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById(tabId).classList.add('active');
-      if(tabId === 'tab6') updateWaitingUI();
-      if(tabId === 'tab7' || tabId === 'tab8') updateHistoryUI();
+      if(tabId === 'tab5') updateWaitingUI();
+      if(tabId === 'tab6' || tabId === 'tab7') updateHistoryUI();
     }
 
+    // 常に18行をキープ
     function initTables() {
       let tb1 = document.querySelector('#tableIndex tbody'); tb1.innerHTML = '';
       for(let i=0; i<18; i++) tb1.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td></tr>`;
@@ -174,33 +165,56 @@
 
       let tb3 = document.querySelector('#tableChange tbody'); tb3.innerHTML = '';
       for(let i=0; i<18; i++) tb3.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input"></td><td><input type="text" class="cell-input"></td></tr>`;
-
-      let tb4 = document.querySelector('#tableBlood tbody'); tb4.innerHTML = '';
-      for(let i=0; i<18; i++) tb4.innerHTML += `<tr><td><input type="text" class="cell-input" style="width:35px;"></td><td><input type="text" class="cell-input name-input"></td><td><input type="text" class="cell-input name-input"></td></tr>`;
     }
     initTables();
 
-    // 💡 ズレた行を自動で合体させる超賢い前処理関数
+    function clearTableInputs(tableId) {
+      document.querySelectorAll(`${tableId} tbody input`).forEach(inp => inp.value = '');
+    }
+
     function preprocessText(rawText) {
       const rawLines = rawText.split('\n').map(l => l.trim()).filter(l => l !== '');
       let lines = [];
       rawLines.forEach(l => {
-        if (l.includes('馬番') && l.includes('馬名')) return; // ヘッダー行を無視
-        // もし行が「数字だけ」なら、前回の行が途中で改行されたと判断して合体させる
-        if (/^\d+(\.\d+)?$/.test(l) && lines.length > 0) {
-            lines[lines.length - 1] += '\t' + l;
-        } else {
-            lines.push(l);
-        }
+        if (l.includes('馬番') && l.includes('馬名')) return;
+        if (/^\d+(\.\d+)?$/.test(l) && lines.length > 0) lines[lines.length - 1] += '\t' + l;
+        else lines.push(l);
       });
       return lines;
     }
 
-    // ② 偏差値データの展開（表・タブ区切り完全対応）
+    // 各テーブルの展開関数
+    function parseIndexTable() {
+      const lines = preprocessText(document.getElementById('pasteData1').value);
+      clearTableInputs('#tableIndex');
+      const rows = document.querySelectorAll('#tableIndex tbody tr');
+      lines.forEach((l, idx) => {
+        if(idx >= 18) return;
+        let num = '', name = '', col1 = '', col2 = '', col3 = '', col4 = '';
+        if (l.includes('\t')) {
+            let p = l.split('\t').map(x => x.trim()).filter(x => x !== '');
+            num = p[0].replace(/[^\d]/g, ''); name = p[1];
+            col1 = p[2]||''; col2 = p[3]||''; col3 = p[4]||''; col4 = p[7]||'';
+        } else {
+            let p = l.replace(/[番|｜：:]/g, ' ').replace(/人気|SP|AG|SA|S値|A値|TSA/gi, ' ').trim().split(/\s+/);
+            if(p.length >= 2) {
+                num = p[0]; name = p[1];
+                let nums = p.slice(2).filter(x => !isNaN(x));
+                col1 = nums[0]||''; col2 = nums[1]||''; col3 = nums[2]||''; col4 = nums[5]||'';
+            }
+        }
+        let inputs = rows[idx].querySelectorAll('input');
+        inputs[0].value = num; inputs[1].value = name;
+        inputs[2].value = col1; inputs[3].value = col2; inputs[4].value = col3; inputs[5].value = col4;
+      });
+    }
+
     function parseDevTable() {
       const lines = preprocessText(document.getElementById('pasteData2').value);
-      const tbody = document.querySelector('#tableDev tbody'); tbody.innerHTML = '';
+      clearTableInputs('#tableDev');
+      const rows = document.querySelectorAll('#tableDev tbody tr');
       lines.forEach((l, idx) => {
+        if(idx >= 18) return;
         let num = '', name = '', col1 = '', col2 = '', col3 = '', col4 = '';
         if (l.includes('\t')) {
             let p = l.split('\t').map(x => x.trim()).filter(x => x !== '');
@@ -214,38 +228,18 @@
                 col1 = nums[0]||''; col2 = nums[1]||''; col3 = nums[2]||''; col4 = nums[3]||'';
             }
         }
-        tbody.innerHTML += `<tr><td><input type="text" class="cell-input" value="${num}" style="width:35px;"></td><td><input type="text" class="cell-input name-input" value="${name}"></td><td><input type="text" class="cell-input" value="${col1}"></td><td><input type="text" class="cell-input" value="${col2}"></td><td><input type="text" class="cell-input" value="${col3}"></td><td><input type="text" class="cell-input" value="${col4}"></td></tr>`;
+        let inputs = rows[idx].querySelectorAll('input');
+        inputs[0].value = num; inputs[1].value = name;
+        inputs[2].value = col1; inputs[3].value = col2; inputs[4].value = col3; inputs[5].value = col4;
       });
-      alert("偏差値データを綺麗に展開しました！");
-    }
-
-    // ① 指数データの展開
-    function parseIndexTable() {
-      const lines = preprocessText(document.getElementById('pasteData1').value);
-      const tbody = document.querySelector('#tableIndex tbody'); tbody.innerHTML = '';
-      lines.forEach((l, idx) => {
-        let num = '', name = '', col1 = '', col2 = '', col3 = '', col4 = '';
-        if (l.includes('\t')) {
-            let p = l.split('\t').map(x => x.trim()).filter(x => x !== '');
-            num = p[0].replace(/[^\d]/g, ''); name = p[1];
-            col1 = p[2]||''; col2 = p[3]||''; col3 = p[4]||''; col4 = p[7]||''; // 7番目がSA値
-        } else {
-            let p = l.replace(/[番|｜：:]/g, ' ').replace(/人気|SP|AG|SA|S値|A値|TSA/gi, ' ').trim().split(/\s+/);
-            if(p.length >= 2) {
-                num = p[0]; name = p[1];
-                let nums = p.slice(2).filter(x => !isNaN(x));
-                col1 = nums[0]||''; col2 = nums[1]||''; col3 = nums[2]||''; col4 = nums[5]||''; // SA値
-            }
-        }
-        tbody.innerHTML += `<tr><td><input type="text" class="cell-input" value="${num}" style="width:35px;"></td><td><input type="text" class="cell-input name-input" value="${name}"></td><td><input type="text" class="cell-input" value="${col1}"></td><td><input type="text" class="cell-input" value="${col2}"></td><td><input type="text" class="cell-input" value="${col3}"></td><td><input type="text" class="cell-input" value="${col4}"></td></tr>`;
-      });
-      alert("指数データを綺麗に展開しました！");
     }
 
     function parseChangeTable() {
       const lines = preprocessText(document.getElementById('pasteData3').value);
-      const tbody = document.querySelector('#tableChange tbody'); tbody.innerHTML = '';
+      clearTableInputs('#tableChange');
+      const rows = document.querySelectorAll('#tableChange tbody tr');
       lines.forEach((l, idx) => {
+        if(idx >= 18) return;
         let num = '', name = '';
         if (l.includes('\t')) {
             let p = l.split('\t').map(x => x.trim()).filter(x => x !== '');
@@ -256,34 +250,30 @@
         }
         const green = (l.match(/🟢/g) || []).length;
         const purple = (l.match(/☠/g) || []).length;
-        tbody.innerHTML += `<tr><td><input type="text" class="cell-input" value="${num}" style="width:35px;"></td><td><input type="text" class="cell-input name-input" value="${name}"></td><td><input type="text" class="cell-input" value="${green}"></td><td><input type="text" class="cell-input" value="${purple}"></td></tr>`;
+        let inputs = rows[idx].querySelectorAll('input');
+        inputs[0].value = num; inputs[1].value = name;
+        inputs[2].value = green; inputs[3].value = purple;
       });
-      alert("変わり身データを展開しました！");
     }
 
-    function parseBloodTable() {
-      const lines = preprocessText(document.getElementById('pasteData4').value);
-      const tbody = document.querySelector('#tableBlood tbody'); tbody.innerHTML = '';
-      lines.forEach((l, idx) => {
-        let num = '', name = '', blood = '';
-        if (l.includes('\t')) {
-            let p = l.split('\t').map(x => x.trim()).filter(x => x !== '');
-            num = p[0].replace(/[^\d]/g, ''); name = p[1];
-            blood = p.slice(2).join(' ');
-        } else {
-            num = (l.match(/(\d+)番?/) || [])[1] || (idx+1);
-            name = (l.match(/(?:\d+番?\s*)(.*?)(?:\s*[:：]|[:：]|$)/) || [])[1]?.trim() || '';
-            blood = l.split('：')[1] || l;
-        }
-        tbody.innerHTML += `<tr><td><input type="text" class="cell-input" value="${num}" style="width:35px;"></td><td><input type="text" class="cell-input name-input" value="${name}"></td><td><input type="text" class="cell-input name-input" value="${blood.trim()}"></td></tr>`;
-      });
-      alert("血統データを展開しました！");
+    // ★自己学習（AIウェイト）の読み書き
+    function getAIWeights() {
+      let w = JSON.parse(localStorage.getItem('keiba_ai_weights'));
+      if(!w) {
+        w = { framePoints: Array(19).fill(0), hitCount: 0 }; // 馬番1〜18のボーナスポイント
+      }
+      return w;
     }
+    function saveAIWeights(w) { localStorage.setItem('keiba_ai_weights', JSON.stringify(w)); }
 
     function getStoredRaces() { return JSON.parse(localStorage.getItem('keiba_races') || '[]'); }
 
+    // 💾 保存してクリアする機能
     function saveRaceData(type) {
-      const rn = document.getElementById(`raceName${type === 'Index' ? 1 : type === 'Dev' ? 2 : type === 'Change' ? 3 : 4}`).value.trim() || "レース";
+      const raceInputId = `raceName${type === 'Index' ? 1 : type === 'Dev' ? 2 : 3}`;
+      const pasteInputId = `pasteData${type === 'Index' ? 1 : type === 'Dev' ? 2 : 3}`;
+      const rn = document.getElementById(raceInputId).value.trim() || "レース";
+      
       let races = getStoredRaces();
       let r = races.find(item => item.raceName === rn) || { raceName: rn, date: new Date().toLocaleDateString(), status: '待機中' };
       
@@ -301,7 +291,12 @@
       
       if(!races.some(item => item.raceName === rn)) races.push(r);
       localStorage.setItem('keiba_races', JSON.stringify(races));
-      alert(`「${rn}」のデータを保存しました！`);
+
+      // ★ 保存完了後にペースト枠とテーブルを自動クリア
+      document.getElementById(pasteInputId).value = '';
+      clearTableInputs(`#table${type}`);
+      
+      alert(`「${rn}」のデータを保存して枠をクリアしました！`);
     }
 
     let currentPredData = {};
@@ -311,15 +306,16 @@
       currentRaceName = document.getElementById('predRaceName').value.trim() || "本日のレース";
       const pointCount = document.getElementById('predPointCount').value;
       const races = getStoredRaces();
+      const ai = getAIWeights(); // 学習した枠順ポイントを取得
       
       let horsesMap = {};
       races.forEach(r => {
         if(r.raceName === currentRaceName) {
-          ['Index', 'Dev', 'Change', 'Blood'].forEach(t => {
+          ['Index', 'Dev', 'Change'].forEach(t => {
             if(r[`data_${t}`]) {
               r[`data_${t}`].forEach(row => {
-                let num = row.col0; let name = row.col1;
-                if(!num && !name) return;
+                let num = parseInt(row.col0); let name = row.col1;
+                if(isNaN(num) || !name) return;
                 if(!horsesMap[num]) horsesMap[num] = { num, name: name || '馬番'+num, score: 50 };
 
                 if(t === 'Index') { horsesMap[num].score += (parseFloat(row.col3) || 0) * 0.2 + (parseFloat(row.col5) || 0) * 0.3; }
@@ -332,16 +328,13 @@
       });
 
       let horses = Object.values(horsesMap);
-      if(horses.length === 0) {
-        document.querySelectorAll('#tableDev tbody tr').forEach(tr => {
-          let inputs = tr.querySelectorAll('input');
-          if(inputs[1].value.trim() !== '') {
-            horses.push({ num: inputs[0].value, name: inputs[1].value, score: (parseFloat(inputs[2].value)||0)*0.5 + (parseFloat(inputs[5].value)||0)*0.5 });
-          }
-        });
-      }
-
       if(horses.length === 0) return alert("データが見つかりません。各タブでデータを保存してから実行してください。");
+
+      // ★ 学習ポイントの加算（AIが過去の結果から好走しやすい枠を推す）
+      horses.forEach(h => {
+        let bonus = ai.framePoints[h.num] || 0;
+        h.score += bonus;
+      });
 
       horses.sort((a, b) => b.score - a.score);
       const h1 = horses[0], h2 = horses[1], h3 = horses[2], h4 = horses[3], h5 = horses[4] || h3;
@@ -369,8 +362,8 @@
       r.prediction = currentPredData.text; r.predData = currentPredData; r.status = '待機中';
       if(!races.some(item => item.raceName === currentRaceName)) races.push(r);
       localStorage.setItem('keiba_races', JSON.stringify(races));
-      alert("結果待ちリストにキープしました！⑥タブで確認できます。");
-      switchTab('tab6');
+      alert("結果待ちリストにキープしました！⑤タブで確認できます。");
+      switchTab('tab5');
     }
 
     function updateWaitingUI() {
@@ -386,12 +379,13 @@
             <div><b>予想:</b><br>${r.prediction}</div>
             <label style="font-size:11px; margin-top:8px;">実際の着順を入力 (例: 1着 17, 2着 7, 3着 3):</label>
             <input type="text" id="res_${idx}" value="${r.result||''}" placeholder="1着 馬番, 2着 馬番, 3着 馬番">
-            <button class="btn-primary" style="padding:8px; font-size:12px; margin-top:5px;" onclick="completeRes(${idx})">🤖 結果を元にAIに検証させる</button>
+            <button class="btn-primary" style="padding:8px; font-size:12px; margin-top:5px;" onclick="completeRes(${idx})">🤖 結果を元にAIに学習＆検証させる</button>
           </div>`;
         }
       });
     }
 
+    // 🤖 AI自動学習エンジン
     function completeRes(idx) {
       let races = getStoredRaces();
       let resText = document.getElementById(`res_${idx}`).value.trim();
@@ -400,26 +394,33 @@
       races[idx].result = resText; races[idx].status = '完了';
       let p = races[idx].predData || {};
       let matchNums = resText.match(/\d+/g) || [];
-      let actual1 = matchNums[0] || ""; let actual2 = matchNums[1] || ""; let actual3 = matchNums[2] || "";
+      let actual1 = parseInt(matchNums[0]);
+      let actual2 = parseInt(matchNums[1]);
+      let actual3 = parseInt(matchNums[2]);
 
-      let tanHit = (actual1 === p.h1Num);
-      let exactaHit = (actual1 === p.h1Num && (actual2 === p.h2Num || actual2 === p.h3Num || actual2 === p.h4Num));
+      let tanHit = (actual1 == p.h1Num);
+      let exactaHit = (actual1 == p.h1Num && (actual2 == p.h2Num || actual2 == p.h3Num || actual2 == p.h4Num));
       let trifectaHit = false;
-      if (actual1 === p.h1Num) {
-        let secondOk = (actual2 === p.h2Num || actual2 === p.h3Num);
-        let thirdOk = (actual3 === p.h2Num || actual3 === p.h3Num || actual3 === p.h4Num || actual3 === p.h5Num);
+      if (actual1 == p.h1Num) {
+        let secondOk = (actual2 == p.h2Num || actual2 == p.h3Num);
+        let thirdOk = (actual3 == p.h2Num || actual3 == p.h3Num || actual3 == p.h4Num || actual3 == p.h5Num);
         if (secondOk && thirdOk) trifectaHit = true;
       }
 
-      let report = `【AI自動検証レポート】\n・実際の着順: 1着[${actual1}番] 2着[${actual2}番] 3着[${actual3}番]\n------------------------------------\n・単勝 判定: ${tanHit ? '🎯 的中！' : '❌ 不的中'}\n・2連単 判定: ${exactaHit ? '🎯 的中！' : '❌ 不的中'}\n・3連単 判定: ${trifectaHit ? '🎯 的中！' : '❌ 不的中'}\n------------------------------------\n【AI総評】\n`;
-      if (trifectaHit) report += `完璧な読みでした！本命馬がしっかり頭で抜け出し、紐馬も完璧に捉えています。`;
-      else if (tanHit || exactaHit) report += `惜しい！軸（本命）の選定は正しかったものの、相手選びや着順の入れ替わりに少しズレがありました。`;
-      else report += `今回は荒れ模様、または想定と異なる展開になりました。各種データ指標の重み付けを見直す余地があります。`;
+      // ★ 自己学習：実際に好走した馬番（枠順）のポイントをAIが自動アップ
+      let ai = getAIWeights();
+      if(actual1 && actual1 <= 18) ai.framePoints[actual1] += 0.5; // 1着に来た枠の信頼度+0.5
+      if(actual2 && actual2 <= 18) ai.framePoints[actual2] += 0.3; // 2着に来た枠の信頼度+0.3
+      if(actual3 && actual3 <= 18) ai.framePoints[actual3] += 0.2; // 3着に来た枠の信頼度+0.2
+      ai.hitCount++;
+      saveAIWeights(ai);
+
+      let report = `【AI自動検証レポート】\n・実際の着順: 1着[${actual1}番] 2着[${actual2}番] 3着[${actual3}番]\n------------------------------------\n・単勝: ${tanHit ? '🎯 的中！' : '❌ 不的中'}\n・2連単: ${exactaHit ? '🎯 的中！' : '❌ 不的中'}\n・3連単: ${trifectaHit ? '🎯 的中！' : '❌ 不的中'}\n------------------------------------\n【🤖 AI学習アップデート】\n実際に好走した枠順（${actual1}番, ${actual2}番, ${actual3}番）にボーナスポイントを加算しました。次回以降のスコア計算に自動反映されます。`;
 
       races[idx].review = report;
       localStorage.setItem('keiba_races', JSON.stringify(races));
-      alert("AIによる検証が完了しました！⑦タブ（検証メモ）でレポートを確認できます。");
-      switchTab('tab7'); updateHistoryUI();
+      alert("AIによる検証と学習が完了しました！⑥タブ（検証メモ）でレポートを確認できます。");
+      switchTab('tab6'); updateHistoryUI();
     }
 
     function updateHistoryUI() {
@@ -428,15 +429,27 @@
       races.forEach((r, idx) => select.innerHTML += `<option value="${idx}">${r.date} - ${r.raceName}</option>`);
 
       let list = document.getElementById('historyList'); list.innerHTML = '';
-      if(races.length === 0) { list.innerHTML = '<p style="color:#666;">蓄積データはありません。</p>'; return; }
+      if(races.length === 0) { list.innerHTML = '<p style="color:#666;">蓄積データはありません。</p>'; } 
+      else {
+        races.slice().reverse().forEach((r, idx) => {
+          let origIdx = races.length - 1 - idx;
+          list.innerHTML += `<div class="history-item">
+            <div class="history-header"><span>${r.date} : ${r.raceName} [${r.status||'完了'}]</span><button class="btn-danger" onclick="deleteRace(${origIdx})">削除</button></div>
+            <div style="white-space: pre-wrap; font-size:12px;"><b>検証レポート:</b>\n${r.review || 'なし'}</div>
+          </div>`;
+        });
+      }
 
-      races.slice().reverse().forEach((r, idx) => {
-        let origIdx = races.length - 1 - idx;
-        list.innerHTML += `<div class="history-item">
-          <div class="history-header"><span>${r.date} : ${r.raceName} [${r.status||'完了'}]</span><button class="btn-danger" onclick="deleteRace(${origIdx})">削除</button></div>
-          <div style="white-space: pre-wrap; font-size:12px;"><b>検証レポート:</b>\n${r.review || 'なし'}</div>
-        </div>`;
-      });
+      // ★ AIの現在の学習状況を表示
+      let ai = getAIWeights();
+      let bestFrames = ai.framePoints.map((score, num) => ({num, score})).filter(f => f.score > 0).sort((a,b) => b.score - a.score).slice(0, 5);
+      let statusHtml = `<b>🤖 現在のAI学習状況（学習回数: ${ai.hitCount}回）</b><br>AIが重視している枠順（ボーナスポイント順）:<br>`;
+      if(bestFrames.length > 0) {
+        bestFrames.forEach(f => statusHtml += `・${f.num}番枠 (+${f.score.toFixed(1)}pt)<br>`);
+      } else {
+        statusHtml += `まだ学習データがありません。結果を入力すると成長します。`;
+      }
+      document.getElementById('aiBrainStatus').innerHTML = statusHtml;
     }
 
     function loadRaceForReview() {
@@ -461,8 +474,9 @@
     }
 
     function clearAllData() {
-      if(!confirm("全データを消去しますか？")) return;
+      if(!confirm("全データとAIの学習を消去しますか？")) return;
       localStorage.removeItem('keiba_races');
+      localStorage.removeItem('keiba_ai_weights');
       initTables(); updateWaitingUI(); updateHistoryUI();
       alert("初期化しました。");
     }
