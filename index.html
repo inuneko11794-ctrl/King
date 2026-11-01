@@ -3,41 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬指数予想（スライダー＆修正テーブル版）</title>
+  <title>競馬AI予想（3種データ統合版）</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 800px; margin: auto; }
-    h1 { font-size: 1.2rem; text-align: center; }
+    body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 900px; margin: auto; }
+    h1 { font-size: 1.2rem; text-align: center; color: #333; }
     
     .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
-    input[type="file"] { width: 100%; margin-bottom: 10px; }
+    .file-group { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #ccc; }
+    .file-group label { display: block; font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #007bff; }
+    input[type="file"] { width: 100%; font-size: 14px; }
     
-    .slider-group { margin-bottom: 10px; }
-    .slider-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+    .controls { background: #e9ecef; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+    .slider-group { margin-bottom: 8px; }
+    .slider-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 3px; }
     input[type="range"] { width: 100%; }
     
-    #previewCanvas { width: 100%; max-height: 400px; object-fit: contain; border: 1px solid #ccc; display: block; margin-bottom: 10px; background: #eee; }
+    #previewCanvas { width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #ccc; background: #fff; display: block; margin-bottom: 10px; }
     #tempCanvas { display: none; }
     
-    button { padding: 12px; font-size: 16px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-bottom: 10px; }
-    .btn-analyze { background: #28a745; }
-    .btn-calc { background: #007bff; }
+    button { padding: 12px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-bottom: 10px; }
+    .btn-analyze { background: #d32f2f; }
+    .btn-calc { background: #28a745; }
     button:disabled { background: #ccc; }
     
-    #status { text-align: center; font-weight: bold; color: #d32f2f; margin-bottom: 10px; font-size: 14px; }
+    #status { text-align: center; font-weight: bold; color: #d32f2f; margin-bottom: 10px; font-size: 14px; white-space: pre-wrap; }
     
-    /* 修正用テーブル */
-    .edit-table-wrapper { overflow-x: auto; margin-bottom: 15px; }
-    table.edit-table { border-collapse: collapse; width: 100%; font-size: 12px; background: white; min-width: 600px; }
-    table.edit-table th, table.edit-table td { border: 1px solid #ccc; padding: 4px; text-align: center; }
-    table.edit-table th { background: #e9ecef; }
-    .edit-table input { width: 100%; box-sizing: border-box; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 4px; }
-    .edit-table input.name-input { text-align: left; min-width: 100px; }
+    /* 修正用＆結果テーブル */
+    .table-wrapper { overflow-x: auto; margin-bottom: 15px; }
+    table { border-collapse: collapse; width: 100%; font-size: 11px; background: white; min-width: 800px; }
+    th, td { border: 1px solid #ccc; padding: 4px; text-align: center; white-space: nowrap; }
+    th { background: #2c3e50; color: white; }
+    .edit-table input { width: 100%; box-sizing: border-box; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; }
+    .edit-table input.name-input { text-align: left; min-width: 90px; }
+    .input-sm { min-width: 35px; }
     
-    /* ランキング用テーブル */
-    table.result-table { border-collapse: collapse; width: 100%; font-size: 14px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    table.result-table th, table.result-table td { border: 1px solid #ccc; padding: 8px 4px; text-align: center; }
-    table.result-table th { background: #2c3e50; color: white; }
     .top1 { background: #ffebee; }
     .top2 { background: #fff3e0; }
     .top3 { background: #f1f8e9; }
@@ -45,58 +45,91 @@
 </head>
 <body>
 
-  <h1>競馬指数AI（スライダー修正版）</h1>
+  <h1>競馬AI（3画像 統合解析システム）</h1>
   
   <div class="card">
-    <input type="file" id="imageInput" accept="image/*">
-    
-    <div class="slider-group">
-      <label>1. 表の開始位置 (上からの割合): <span id="valStart">12.0</span>%</label>
-      <input type="range" id="sliderStart" min="5" max="30" step="0.1" value="12.0">
-    </div>
-    
-    <div class="slider-group">
-      <label>2. 1行分の高さ: <span id="valHeight">5.0</span>%</label>
-      <input type="range" id="sliderHeight" min="2" max="10" step="0.1" value="5.0">
-    </div>
-    
-    <label style="font-size:12px; color:#666;">※プレビューの赤枠が各行にピッタリ合うようにスライダーを調整してください</label>
-    <canvas id="previewCanvas"></canvas>
-    
-    <div class="slider-group">
-      <label>出走頭数:</label>
-      <select id="horseCount" style="padding: 6px; width: 100px;">
-        <option value="16" selected>16頭</option>
-        <option value="18">18頭</option>
-        <option value="14">14頭</option>
-      </select>
+    <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+      3種類の画像をセットし、プレビューを見ながら赤枠が各行に合うようにスライダーを調整してください。
     </div>
 
-    <button id="btnAnalyze" class="btn-analyze">この設定で画像を読み取る</button>
+    <!-- 画像アップロード部 -->
+    <div class="file-group">
+      <label>① 指数一覧比較 の画像</label>
+      <input type="file" id="img1" accept="image/*">
+    </div>
+    <div class="file-group">
+      <label>② 出走馬の偏差値 の画像</label>
+      <input type="file" id="img2" accept="image/*">
+    </div>
+    <div class="file-group" style="border:none;">
+      <label>③ 変わり身チェック の画像</label>
+      <input type="file" id="img3" accept="image/*">
+    </div>
+
+    <!-- 調整UI -->
+    <div class="controls">
+      <label style="font-size: 13px; font-weight: bold;">🔍 調整する画像を選択:</label>
+      <select id="previewSelector" style="padding: 6px; width: 100%; margin-bottom: 10px;">
+        <option value="1">① 指数一覧比較</option>
+        <option value="2">② 出走馬の偏差値</option>
+        <option value="3">③ 変わり身チェック</option>
+      </select>
+
+      <div class="slider-group">
+        <label>表の開始位置: <span id="valStart">15.0</span>%</label>
+        <input type="range" id="sliderStart" min="5" max="30" step="0.1" value="15.0">
+      </div>
+      <div class="slider-group">
+        <label>1行分の高さ: <span id="valHeight">5.0</span>%</label>
+        <input type="range" id="sliderHeight" min="2" max="10" step="0.1" value="5.0">
+      </div>
+      <div class="slider-group">
+        <label>出走頭数: 
+          <select id="horseCount" style="padding: 4px;">
+            <option value="16" selected>16頭</option>
+            <option value="18">18頭</option>
+            <option value="14">14頭</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    
+    <canvas id="previewCanvas"></canvas>
+    <button id="btnAnalyze" class="btn-analyze">3枚の画像をすべて統合解析する</button>
     <div id="status"></div>
   </div>
 
-  <!-- 読み取り結果の修正エリア -->
+  <!-- 編集エリア -->
   <div id="editArea" style="display: none;" class="card">
-    <h3 style="margin-top:0; font-size:15px;">読み取り結果（間違っているマスは手入力で修正）</h3>
-    <div class="edit-table-wrapper">
+    <h3 style="margin-top:0; font-size:14px;">読み取り結果（空欄やミスは手入力で補完してください）</h3>
+    <div class="table-wrapper">
       <table class="edit-table" id="editTable">
         <thead>
-          <tr><th>番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>S</th><th>A</th><th>SA</th></tr>
+          <tr>
+            <th>番</th><th>馬名</th>
+            <th>人気</th><th>SP</th><th>AG</th><th>SA</th>
+            <th style="background:#4b6584;">総合(偏)</th><th style="background:#4b6584;">実績</th>
+            <th style="background:#20bf6b;">緑○</th><th style="background:#8854d0;">紫☠</th>
+          </tr>
         </thead>
-        <tbody>
-          <!-- JSで自動生成 -->
-        </tbody>
+        <tbody><!-- JS生成 --></tbody>
       </table>
     </div>
-    <button id="btnCalc" class="btn-calc">修正を反映してスコアを計算</button>
+    <button id="btnCalc" class="btn-calc">統合スコアを計算して予想を出す</button>
   </div>
 
   <div id="resultArea"></div>
   <canvas id="tempCanvas"></canvas>
 
   <script>
-    let img = new Image();
+    // 3枚の画像データとそれぞれのスライダー設定を保持
+    const appState = {
+      1: { img: new Image(), start: 15.0, height: 5.0 },
+      2: { img: new Image(), start: 18.0, height: 5.0 },
+      3: { img: new Image(), start: 18.0, height: 5.0 }
+    };
+    
+    let currentPreview = 1;
     const previewCanvas = document.getElementById('previewCanvas');
     const previewCtx = previewCanvas.getContext('2d');
     const tempCanvas = document.getElementById('tempCanvas');
@@ -104,175 +137,291 @@
 
     const sliderStart = document.getElementById('sliderStart');
     const sliderHeight = document.getElementById('sliderHeight');
-    const valStart = document.getElementById('valStart');
-    const valHeight = document.getElementById('valHeight');
+    const previewSelector = document.getElementById('previewSelector');
     const horseCountSelect = document.getElementById('horseCount');
 
-    // プレビューの赤線を描画する関数
-    function drawPreview() {
-      if (!img.src) return;
-      previewCanvas.width = img.width;
-      previewCanvas.height = img.height;
-      previewCtx.drawImage(img, 0, 0);
+    // 画像読み込みイベント
+    [1, 2, 3].forEach(id => {
+      document.getElementById(`img${id}`).addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          appState[id].img.onload = () => {
+            if (currentPreview == id) drawPreview();
+          };
+          appState[id].img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    });
 
-      const startY = img.height * (sliderStart.value / 100);
-      const rowHeight = img.height * (sliderHeight.value / 100);
+    // プレビュー切り替え
+    previewSelector.addEventListener('change', (e) => {
+      currentPreview = e.target.value;
+      sliderStart.value = appState[currentPreview].start;
+      sliderHeight.value = appState[currentPreview].height;
+      document.getElementById('valStart').textContent = appState[currentPreview].start;
+      document.getElementById('valHeight').textContent = appState[currentPreview].height;
+      drawPreview();
+    });
+
+    // スライダー操作
+    sliderStart.addEventListener('input', (e) => { 
+      appState[currentPreview].start = e.target.value;
+      document.getElementById('valStart').textContent = e.target.value;
+      drawPreview(); 
+    });
+    sliderHeight.addEventListener('input', (e) => { 
+      appState[currentPreview].height = e.target.value;
+      document.getElementById('valHeight').textContent = e.target.value;
+      drawPreview(); 
+    });
+    horseCountSelect.addEventListener('change', drawPreview);
+
+    function drawPreview() {
+      const state = appState[currentPreview];
+      if (!state.img.src) {
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        return;
+      }
+      previewCanvas.width = state.img.width;
+      previewCanvas.height = state.img.height;
+      previewCtx.drawImage(state.img, 0, 0);
+
+      const startY = state.img.height * (state.start / 100);
+      const rowHeight = state.img.height * (state.height / 100);
       const count = parseInt(horseCountSelect.value);
 
       previewCtx.strokeStyle = 'red';
-      previewCtx.lineWidth = Math.max(2, img.width / 300);
+      previewCtx.lineWidth = Math.max(2, state.img.width / 300);
 
       for (let i = 0; i <= count; i++) {
         const y = startY + (rowHeight * i);
         previewCtx.beginPath();
         previewCtx.moveTo(0, y);
-        previewCtx.lineTo(img.width, y);
+        previewCtx.lineTo(state.img.width, y);
         previewCtx.stroke();
       }
     }
 
-    document.getElementById('imageInput').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        img.onload = () => drawPreview();
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    sliderStart.addEventListener('input', (e) => { valStart.textContent = e.target.value; drawPreview(); });
-    sliderHeight.addEventListener('input', (e) => { valHeight.textContent = e.target.value; drawPreview(); });
-    horseCountSelect.addEventListener('change', drawPreview);
-
-    // --- 1. OCR解析処理 ---
+    // --- メイン解析処理 ---
     document.getElementById('btnAnalyze').addEventListener('click', async () => {
-      if (!img.src) return alert("画像を選択してください");
+      if (!appState[1].img.src || !appState[2].img.src || !appState[3].img.src) {
+        return alert("3枚すべての画像をアップロードしてください");
+      }
       
       const btn = document.getElementById('btnAnalyze');
       const statusEl = document.getElementById('status');
       const editTableBody = document.querySelector('#editTable tbody');
+      const headCount = parseInt(horseCountSelect.value);
       
       btn.disabled = true;
       document.getElementById('editArea').style.display = 'none';
-      document.getElementById('resultArea').innerHTML = '';
       editTableBody.innerHTML = '';
-
-      const startY = img.height * (sliderStart.value / 100);
-      const rowHeight = img.height * (sliderHeight.value / 100);
-      const headCount = parseInt(horseCountSelect.value);
-      const imgW = img.width;
+      
+      // 馬番をキーにした統合データ
+      const horseData = {};
+      for(let i=1; i<=headCount; i++) horseData[i] = { num: i, name: "", pop: "", sp: "", ag: "", sa: "", devTotal: "", devAchieve: "", markGood: 0, markBad: 0 };
 
       try {
         const worker = await Tesseract.createWorker('jpn');
-        await worker.setParameters({ tessedit_pageseg_mode: '7' }); 
+        await worker.setParameters({ tessedit_pageseg_mode: '7' });
 
+        const parseSafe = str => parseFloat(str.replace(/[Oo]/g, '0'));
+
+        // ① 指数一覧の解析
+        statusEl.textContent = "① 指数一覧を解析中...\n(1/3 完了までお待ちください)";
         for (let i = 0; i < headCount; i++) {
-          statusEl.textContent = `AIで読み取り中... (${i+1} / ${headCount})`;
+          const img = appState[1].img;
+          const y = img.height * (appState[1].start / 100) + (img.height * (appState[1].height / 100) * i);
+          const h = img.height * (appState[1].height / 100);
           
-          const currentY = startY + (rowHeight * i);
-          tempCanvas.width = imgW;
-          tempCanvas.height = rowHeight;
-          tempCtx.drawImage(img, 0, currentY, imgW, rowHeight, 0, 0, imgW, rowHeight);
-
-          // 色抜きフィルター（白黒化）
-          const imgData = tempCtx.getImageData(0, 0, imgW, rowHeight);
-          for (let p = 0; p < imgData.data.length; p += 4) {
-            const avg = (imgData.data[p] + imgData.data[p+1] + imgData.data[p+2]) / 3;
-            const color = avg < 120 ? 0 : 255; 
-            imgData.data[p] = imgData.data[p+1] = imgData.data[p+2] = color;
+          tempCanvas.width = img.width; tempCanvas.height = h;
+          tempCtx.drawImage(img, 0, y, img.width, h, 0, 0, img.width, h);
+          
+          // 白黒化
+          const d = tempCtx.getImageData(0,0,img.width,h);
+          for(let p=0; p<d.data.length; p+=4) {
+            const color = (d.data[p]+d.data[p+1]+d.data[p+2])/3 < 120 ? 0 : 255;
+            d.data[p] = d.data[p+1] = d.data[p+2] = color;
           }
-          tempCtx.putImageData(imgData, 0, 0);
+          tempCtx.putImageData(d, 0, 0);
 
           const { data: { text } } = await worker.recognize(tempCanvas);
-          
-          // 解析処理
-          const cleanLine = text.replace(/[口□_]/g, '').trim();
-          const parts = cleanLine.split(/\s+/);
-          
-          let hNum = "", hName = "", pop = "", sp = "", ag = "", s = "", a = "", sa = "";
+          const parts = text.replace(/[口□_]/g, '').trim().split(/\s+/);
           
           if (parts.length >= 7 && !isNaN(parseInt(parts[0]))) {
-            hNum = parseInt(parts[0]);
+            const hNum = parseInt(parts[0]);
             const nums = [];
-            const parseSafe = str => parseFloat(str.replace(/[Oo]/g, '0'));
-            
             for (let j = parts.length - 1; j >= 1; j--) {
                const val = parseSafe(parts[j]);
                if (!isNaN(val)) nums.unshift(val);
                else break;
             }
-            if (nums.length >= 6) {
-              hName = parts.slice(1, parts.length - nums.length).join("").replace(/\d[牡牝せん].*/, ""); 
-              [pop, sp, ag, s, a, sa] = nums;
+            if (nums.length >= 6 && horseData[hNum]) {
+              horseData[hNum].name = parts.slice(1, parts.length - nums.length).join("").replace(/\d[牡牝せん].*/, "");
+              horseData[hNum].pop = nums[0];
+              horseData[hNum].sp = nums[1];
+              horseData[hNum].ag = nums[2];
+              horseData[hNum].sa = nums[5];
             }
           }
-
-          // 編集用テーブルの行を追加（パース失敗時は空欄になるので手入力できる）
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td><input type="number" class="val-num" value="${hNum}"></td>
-            <td><input type="text" class="val-name name-input" value="${hName}"></td>
-            <td><input type="number" class="val-pop" value="${pop}"></td>
-            <td><input type="number" class="val-sp" value="${sp}"></td>
-            <td><input type="number" class="val-ag" value="${ag}"></td>
-            <td><input type="number" class="val-s" value="${s}"></td>
-            <td><input type="number" class="val-a" value="${a}"></td>
-            <td><input type="number" class="val-sa" value="${sa}"></td>
-          `;
-          editTableBody.appendChild(tr);
         }
+
+        // ② 偏差値の解析
+        statusEl.textContent = "② 偏差値を解析中...\n(2/3 完了までお待ちください)";
+        for (let i = 0; i < headCount; i++) {
+          const img = appState[2].img;
+          const y = img.height * (appState[2].start / 100) + (img.height * (appState[2].height / 100) * i);
+          const h = img.height * (appState[2].height / 100);
+          
+          tempCanvas.width = img.width; tempCanvas.height = h;
+          tempCtx.drawImage(img, 0, y, img.width, h, 0, 0, img.width, h);
+          
+          const d = tempCtx.getImageData(0,0,img.width,h);
+          for(let p=0; p<d.data.length; p+=4) {
+            const color = (d.data[p]+d.data[p+1]+d.data[p+2])/3 < 120 ? 0 : 255;
+            d.data[p] = d.data[p+1] = d.data[p+2] = color;
+          }
+          tempCtx.putImageData(d, 0, 0);
+
+          const { data: { text } } = await worker.recognize(tempCanvas);
+          const parts = text.replace(/[口□_]/g, '').trim().split(/\s+/);
+          
+          if (parts.length >= 4 && !isNaN(parseInt(parts[0]))) {
+            const hNum = parseInt(parts[0]);
+            const nums = [];
+            for (let j = parts.length - 1; j >= 1; j--) {
+               const val = parseSafe(parts[j]);
+               if (!isNaN(val)) nums.unshift(val);
+               else break;
+            }
+            if (nums.length >= 4 && horseData[hNum]) {
+              horseData[hNum].devTotal = nums[0]; // 総合
+              horseData[hNum].devAchieve = nums[3]; // 実績
+            }
+          }
+        }
+
+        // ③ 変わり身の解析 (OCRで馬番特定 + ピクセルカラー判定で記号集計)
+        statusEl.textContent = "③ 状態マークを解析中...\n(3/3 もうすぐ完了です！)";
+        for (let i = 0; i < headCount; i++) {
+          const img = appState[3].img;
+          const y = img.height * (appState[3].start / 100) + (img.height * (appState[3].height / 100) * i);
+          const h = img.height * (appState[3].height / 100);
+          
+          // 左側20%だけ切り出してOCR（馬番の取得）
+          const leftW = img.width * 0.2;
+          tempCanvas.width = leftW; tempCanvas.height = h;
+          tempCtx.drawImage(img, 0, y, leftW, h, 0, 0, leftW, h);
+          
+          const dLeft = tempCtx.getImageData(0,0,leftW,h);
+          for(let p=0; p<dLeft.data.length; p+=4) {
+            const color = (dLeft.data[p]+dLeft.data[p+1]+dLeft.data[p+2])/3 < 120 ? 0 : 255;
+            dLeft.data[p] = dLeft.data[p+1] = dLeft.data[p+2] = color;
+          }
+          tempCtx.putImageData(dLeft, 0, 0);
+          const { data: { text } } = await worker.recognize(tempCanvas);
+          const hNum = parseInt(text.replace(/[^\d]/g, ''));
+
+          // 右側80%の色判定（緑と紫のピクセルカウント）
+          if (hNum && horseData[hNum]) {
+            const rightW = img.width * 0.8;
+            tempCanvas.width = rightW; tempCanvas.height = h;
+            tempCtx.drawImage(img, leftW, y, rightW, h, 0, 0, rightW, h);
+            
+            let greenPx = 0, purplePx = 0;
+            const dRight = tempCtx.getImageData(0,0,rightW,h).data;
+            for(let p=0; p<dRight.length; p+=4) {
+              const r = dRight[p], g = dRight[p+1], b = dRight[p+2];
+              if (g > 150 && r < 100 && b < 100) greenPx++; // 緑っぽい
+              if (r > 100 && b > 150 && g < 100) purplePx++; // 紫っぽい
+            }
+            
+            // ピクセル数が一定以上ならマークありと判定
+            if (greenPx > 20) horseData[hNum].markGood++;
+            if (purplePx > 20) horseData[hNum].markBad++;
+          }
+        }
+
         await worker.terminate();
 
-        statusEl.textContent = "読み取り完了！間違っている部分は直接書き直してください。";
+        // テーブル描画
+        Object.values(horseData).forEach(h => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><input type="number" class="v-num input-sm" value="${h.num}" readonly style="background:#eee;"></td>
+            <td><input type="text" class="v-name name-input" value="${h.name}"></td>
+            <td><input type="number" class="v-pop input-sm" value="${h.pop}"></td>
+            <td><input type="number" class="v-sp input-sm" value="${h.sp}"></td>
+            <td><input type="number" class="v-ag input-sm" value="${h.ag}"></td>
+            <td><input type="number" class="v-sa input-sm" value="${h.sa}"></td>
+            <td><input type="number" class="v-devT input-sm" value="${h.devTotal}"></td>
+            <td><input type="number" class="v-devA input-sm" value="${h.devAchieve}"></td>
+            <td><input type="number" class="v-good input-sm" value="${h.markGood}"></td>
+            <td><input type="number" class="v-bad input-sm" value="${h.markBad}"></td>
+          `;
+          editTableBody.appendChild(tr);
+        });
+
+        statusEl.textContent = "全データの統合完了！空欄やミスを手入力で直してください。";
         document.getElementById('editArea').style.display = 'block';
 
       } catch (error) {
-        statusEl.textContent = "エラーが発生しました。";
+        statusEl.textContent = "エラーが発生しました。スライダーの位置を確認してください。";
         console.error(error);
       } finally {
         btn.disabled = false;
       }
     });
 
-    // --- 2. 修正後のスコア計算処理 ---
+    // --- 統合スコア計算 ---
     document.getElementById('btnCalc').addEventListener('click', () => {
       const rows = document.querySelectorAll('#editTable tbody tr');
       const horses = [];
 
       rows.forEach(tr => {
-        const num = parseInt(tr.querySelector('.val-num').value);
-        const name = tr.querySelector('.val-name').value.trim();
-        if (!num || !name) return; // 空欄の行は無視
+        const num = parseInt(tr.querySelector('.v-num').value);
+        const name = tr.querySelector('.v-name').value.trim();
+        if (!name) return; // 名前がない行は除外
 
-        const pop = parseFloat(tr.querySelector('.val-pop').value) || 0;
-        const sp = parseFloat(tr.querySelector('.val-sp').value) || 0;
-        const ag = parseFloat(tr.querySelector('.val-ag').value) || 0;
-        const s = parseFloat(tr.querySelector('.val-s').value) || 0;
-        const a = parseFloat(tr.querySelector('.val-a').value) || 0;
-        const sa = parseFloat(tr.querySelector('.val-sa').value) || 0;
+        const pop = parseFloat(tr.querySelector('.v-pop').value) || 0;
+        const sp = parseFloat(tr.querySelector('.v-sp').value) || 0;
+        const ag = parseFloat(tr.querySelector('.v-ag').value) || 0;
+        const sa = parseFloat(tr.querySelector('.v-sa').value) || 0;
+        const devT = parseFloat(tr.querySelector('.v-devT').value) || 0;
+        const devA = parseFloat(tr.querySelector('.v-devA').value) || 0;
+        const good = parseFloat(tr.querySelector('.v-good').value) || 0;
+        const bad = parseFloat(tr.querySelector('.v-bad').value) || 0;
 
-        // 独自のスコア計算
-        const score = (sa * 0.4) + (ag * 0.25) + (sp * 0.2) + (s * 0.1) + ((20 - pop) * 0.5);
+        // 【最強の統合スコア計算ロジック】
+        // 基礎(SA, AG, SP, 人気) + 偏差値要素(総合, 実績) + 状態マーク(緑+5点, 紫-5点)
+        let score = (sa * 0.3) + (ag * 0.2) + (sp * 0.15) + ((20 - pop) * 0.5) 
+                  + (devT * 0.2) + (devA * 0.15)
+                  + (good * 5) - (bad * 5);
         
-        horses.push({ number: num, name, pop, sp, ag, sa, score: Math.round(score * 10) / 10 });
+        horses.push({ num, name, pop, sa, devT, good, bad, score: Math.round(score * 10) / 10 });
       });
 
       const sorted = horses.sort((a, b) => b.score - a.score);
       
-      let html = `<table class="result-table"><tr><th>印</th><th>番</th><th>馬名</th><th>人</th><th>SP</th><th>AG</th><th>SA</th><th>スコア</th></tr>`;
+      let html = `<div class="table-wrapper"><table><tr><th>印</th><th>番</th><th>馬名</th><th>人</th><th>SA</th><th>総合(偏)</th><th>状態</th><th>総合スコア</th></tr>`;
       sorted.forEach((h, i) => {
         let trClass = i === 0 ? 'top1' : (i === 1 ? 'top2' : (i === 2 ? 'top3' : ''));
         let mark = i === 0 ? '◎' : (i === 1 ? '◯' : (i === 2 ? '▲' : ''));
+        let stateStr = (h.good > 0 ? "🟢".repeat(h.good) : "") + (h.bad > 0 ? "☠".repeat(h.bad) : "");
+        if(!stateStr) stateStr = "ー";
+
         html += `<tr class="${trClass}">
-          <td style="color:red; font-weight:bold;">${mark}</td><td>${h.number}</td>
+          <td style="color:red; font-weight:bold;">${mark}</td><td>${h.num}</td>
           <td style="text-align:left;">${h.name}</td>
-          <td>${h.pop}</td><td>${h.sp}</td><td>${h.ag}</td><td>${h.sa}</td>
-          <td style="font-weight:bold; color:red;">${h.score.toFixed(1)}</td>
+          <td>${h.pop}</td><td>${h.sa}</td><td>${h.devT}</td>
+          <td>${stateStr}</td>
+          <td style="font-weight:bold; color:red; font-size:14px;">${h.score.toFixed(1)}</td>
         </tr>`;
       });
-      html += `</table>`;
+      html += `</table></div>`;
       
       document.getElementById('resultArea').innerHTML = html;
       document.getElementById('resultArea').scrollIntoView({ behavior: "smooth" });
