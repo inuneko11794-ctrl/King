@@ -3,25 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬 予想・検証ノート（完全対応版）</title>
+  <title>競馬AI予想＆検証ノート（待機・結果判定付き）</title>
   <style>
     body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 800px; margin: auto; color: #333; }
     h1 { font-size: 1.2rem; text-align: center; color: #2c3e50; margin-bottom: 15px; }
     
-    .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; }
-    .tab { padding: 10px 5px; cursor: pointer; font-weight: bold; color: #666; background: #e9ecef; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; flex: 1; text-align: center; font-size: 11px; }
+    .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; flex-wrap: wrap; }
+    .tab { padding: 8px 4px; cursor: pointer; font-weight: bold; color: #666; background: #e9ecef; border-radius: 6px 6px 0 0; border: 1px solid #ccc; border-bottom: none; flex: 1; min-width: 70px; text-align: center; font-size: 11px; }
     .tab.active { background: #fff; color: #d32f2f; border-top: 3px solid #d32f2f; border-bottom: 2px solid #fff; margin-bottom: -2px; }
     .tab-content { display: none; background: #fff; padding: 15px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .tab-content.active { display: block; }
     
     .card { margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #ddd; }
     label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #555; }
-    input[type="text"], textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-bottom: 10px; }
-    textarea { height: 120px; font-family: monospace; font-size: 12px; }
+    input[type="text"], textarea, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-bottom: 10px; }
+    textarea { height: 100px; font-family: monospace; font-size: 12px; }
     
     button { padding: 12px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-bottom: 10px; }
     .btn-primary { background: #28a745; }
     .btn-secondary { background: #007bff; }
+    .btn-ai { background: #673ab7; font-size: 16px; padding: 15px; }
+    .btn-warning { background: #ff9800; color: #fff; }
     .btn-danger { background: #dc3545; font-size: 12px; padding: 6px; width: auto; }
     
     .table-wrapper { overflow-x: auto; margin-top: 10px; margin-bottom: 15px; }
@@ -31,26 +33,33 @@
     input.cell-input { width: 100%; box-sizing: border-box; padding: 4px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
     input.name-input { text-align: left; }
     
-    .history-item { background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 13px; }
+    .prediction-box { background: #ede7f6; border: 2px solid #673ab7; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+    .prediction-box h3 { margin-top: 0; color: #512da8; font-size: 16px; border-bottom: 1px solid #d1c4e9; padding-bottom: 5px; }
+    .pred-section { margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+    .pred-section b { color: #311b92; }
+
+    .history-item { background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
     .history-header { font-weight: bold; color: #007bff; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
 
-  <h1>🐎 競馬 予想・検証ノート</h1>
+  <h1>🐎 競馬AI予想＆検証ノート</h1>
 
   <div class="tabs">
-    <div class="tab active" onclick="switchTab('tab1')">① 偏差値データ</div>
-    <div class="tab" onclick="switchTab('tab2')">② 変わり身データ</div>
-    <div class="tab" onclick="switchTab('tab3')">③ 検証・反省メモ</div>
-    <div class="tab" onclick="switchTab('tab4')">④ 蓄積一覧</div>
+    <div class="tab active" onclick="switchTab('tab1')">① 偏差値</div>
+    <div class="tab" onclick="switchTab('tab2')">② 変わり身</div>
+    <div class="tab" onclick="switchTab('tab3')">③ AI予想</div>
+    <div class="tab" onclick="switchTab('tab4')">④ 待機・結果待ち</div>
+    <div class="tab" onclick="switchTab('tab5')">⑤ 検証メモ</div>
+    <div class="tab" onclick="switchTab('tab6')">⑥ 蓄積一覧</div>
   </div>
 
   <!-- ① 偏差値データタブ -->
   <div id="tab1" class="tab-content active">
     <div class="card">
       <label>レース名</label>
-      <input type="text" id="raceName1" placeholder="例: 京都11R 2歳未勝利">
+      <input type="text" id="raceName1" placeholder="例: 京都11R 天皇賞">
       <label>「出走馬の偏差値」テキストをペースト</label>
       <textarea id="pasteData1" placeholder="17番 ダノンデサイル：総合 68 | SP 67..."></textarea>
       <button class="btn-primary" onclick="parseDeviationTable()">偏差値データをテーブルに展開</button>
@@ -68,35 +77,65 @@
   <div id="tab2" class="tab-content">
     <div class="card">
       <label>レース名</label>
-      <input type="text" id="raceName2" placeholder="例: 京都11R 2歳未勝利">
+      <input type="text" id="raceName2" placeholder="例: 京都11R 天皇賞">
       <label>「変わり身チェック」テキストをペースト</label>
-      <textarea id="pasteData2" placeholder="5番 マルモリマイベスト：騎手変(🟢)、レース間隔(🟢)..."></textarea>
+      <textarea id="pasteData2" placeholder="5番 マルモリマイベスト：騎手変(🟢)..."></textarea>
       <button class="btn-primary" onclick="parseChangeTable()">変わり身データをテーブルに展開</button>
     </div>
     <div class="table-wrapper">
       <table id="tableChange">
-        <thead><tr><th>番</th><th>馬名</th><th>緑マーク(🟢)</th><th>紫ドクロ(☠)</th><th>詳細メモ</th></tr></thead>
+        <thead><tr><th>番</th><th>馬名</th><th>緑(🟢)</th><th>紫(☠)</th><th>詳細メモ</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
     <button class="btn-secondary" onclick="saveRaceData('Change')">この変わり身データを保存</button>
   </div>
 
-  <!-- ③ 検証・反省メモタブ -->
+  <!-- ③ AI予想出力タブ -->
   <div id="tab3" class="tab-content">
+    <div class="card">
+      <label>対象レース名</label>
+      <input type="text" id="predRaceName" placeholder="例: 京都11R 天皇賞">
+      
+      <label>指定点数（3連単など）</label>
+      <select id="predPointCount">
+        <option value="12">3連単 12点フォーメーション</option>
+        <option value="24" selected>3連単 24点フォーメーション</option>
+        <option value="60">3連単 60点フォーメーション</option>
+      </select>
+
+      <button class="btn-ai" onclick="generateAIPrediction()">🤖 AIに予想を出力させる</button>
+    </div>
+
+    <div id="predictionResult" class="prediction-box">
+      <h3>🎯 AIレース予想結果</h3>
+      <div id="predContent"></div>
+      <button class="btn-warning" style="margin-top:15px;" onclick="moveToWaitingList()">⏳ この予想を「結果待ちリスト」にキープする</button>
+    </div>
+  </div>
+
+  <!-- ④ 待機・結果待ちタブ -->
+  <div id="tab4" class="tab-content">
+    <h3>⏳ 結果待ちレース一覧（待機中）</h3>
+    <p style="font-size:12px; color:#666;">レース結果が出るまでここでキープします。結果が出たら着順を入力して検証を完了させてください。</p>
+    <div id="waitingList"></div>
+  </div>
+
+  <!-- ⑤ 検証メモタブ -->
+  <div id="tab5" class="tab-content">
     <div class="card">
       <label>保存済みレースの選択</label>
       <select id="selectRaceForReview" style="width:100%; padding:8px; margin-bottom:10px;" onchange="loadRaceForReview()">
         <option value="">-- レースを選択してください --</option>
       </select>
       <label>レース結果・反省・検証メモ</label>
-      <textarea id="reviewText" style="height:150px;" placeholder="例: 変わり身の緑マークが多い馬が好走した。"></textarea>
+      <textarea id="reviewText" style="height:150px;" placeholder="例: 予想的中！緑マークの効果が高かった。"></textarea>
       <button class="btn-primary" onclick="saveReview()">検証メモを保存</button>
     </div>
   </div>
 
-  <!-- ④ 蓄積データ一覧タブ -->
-  <div id="tab4" class="tab-content">
+  <!-- ⑥ 蓄積データ一覧タブ -->
+  <div id="tab6" class="tab-content">
     <h3>蓄積されたレース・検証ログ</h3>
     <div id="historyList"></div>
     <button class="btn-danger" onclick="clearAllData()" style="margin-top:20px;">全データをクリア</button>
@@ -108,7 +147,8 @@
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById(tabId).classList.add('active');
-      if(tabId === 'tab3' || tabId === 'tab4') updateHistoryUI();
+      if(tabId === 'tab4') updateWaitingUI();
+      if(tabId === 'tab5' || tabId === 'tab6') updateHistoryUI();
     }
 
     function initDevTable(data = []) {
@@ -144,62 +184,42 @@
     initDevTable();
     initChangeTable();
 
-    // 偏差値テキストの自動分解
     function parseDeviationTable() {
       const text = document.getElementById('pasteData1').value;
       const lines = text.split('\n').filter(l => l.trim() !== '');
       const parsedData = [];
-      
       lines.forEach(line => {
         const numMatch = line.match(/(\d+)番?/);
         const num = numMatch ? numMatch[1] : '';
         let name = '';
         const nameMatch = line.match(/(?:\d+番?\s*)(.*?)(?:\s*[:：]|[:：]|$)/);
         if (nameMatch) name = nameMatch[1].trim();
-
         const nums = line.match(/\d+/g);
         let col1 = '', col2 = '', col3 = '', col4 = '';
         if (nums) {
           const valNums = nums.slice(num ? 1 : 0);
-          if (valNums.length >= 4) {
-            col1 = valNums[0]; col2 = valNums[1]; col3 = valNums[2]; col4 = valNums[3];
-          }
+          if (valNums.length >= 4) { col1 = valNums[0]; col2 = valNums[1]; col3 = valNums[2]; col4 = valNums[3]; }
         }
         if (name || num) parsedData.push({ num, name, col1, col2, col3, col4 });
       });
-
-      if(parsedData.length > 0) {
-        initDevTable(parsedData);
-        alert(`${parsedData.length}頭分の偏差値データを展開しました！`);
-      }
+      if(parsedData.length > 0) { initDevTable(parsedData); alert(`${parsedData.length}頭分の偏差値データを展開しました！`); }
     }
 
-    // 変わり身テキストの自動分解（緑と紫の数を自動カウント）
     function parseChangeTable() {
       const text = document.getElementById('pasteData2').value;
       const lines = text.split('\n').filter(l => l.trim() !== '');
       const parsedData = [];
-      
       lines.forEach(line => {
         const numMatch = line.match(/(\d+)番?/);
         const num = numMatch ? numMatch[1] : '';
         let name = '';
         const nameMatch = line.match(/(?:\d+番?\s*)(.*?)(?:\s*[:：]|[:：]|$)/);
         if (nameMatch) name = nameMatch[1].trim();
-
-        // 緑（🟢）と紫（☠）の数を数える
         const greenCount = (line.match(/🟢/g) || []).length;
         const purpleCount = (line.match(/☠/g) || []).length;
-
-        if (name || num) {
-          parsedData.push({ num, name, green: greenCount, purple: purpleCount, detail: line });
-        }
+        if (name || num) parsedData.push({ num, name, green: greenCount, purple: purpleCount, detail: line });
       });
-
-      if(parsedData.length > 0) {
-        initChangeTable(parsedData);
-        alert(`${parsedData.length}頭分の変わり身データを展開しました！（緑・紫の数も自動集計）`);
-      }
+      if(parsedData.length > 0) { initChangeTable(parsedData); alert(`${parsedData.length}頭分の変わり身データを展開しました！`); }
     }
 
     function getStoredRaces() {
@@ -217,11 +237,8 @@
         const inputs = tr.querySelectorAll('input');
         if(inputs[1].value.trim() !== '') {
           let hData = { num: inputs[0].value, name: inputs[1].value };
-          if(type === 'Dev') {
-            hData.col1 = inputs[2].value; hData.col2 = inputs[3].value; hData.col3 = inputs[4].value; hData.col4 = inputs[5].value;
-          } else {
-            hData.green = inputs[2].value; hData.purple = inputs[3].value; hData.detail = inputs[4].value;
-          }
+          if(type === 'Dev') { hData.col1 = inputs[2].value; hData.col2 = inputs[3].value; hData.col3 = inputs[4].value; hData.col4 = inputs[5].value; }
+          else { hData.green = inputs[2].value; hData.purple = inputs[3].value; hData.detail = inputs[4].value; }
           horses.push(hData);
         }
       });
@@ -231,21 +248,142 @@
       let races = getStoredRaces();
       let existing = races.find(r => r.raceName === raceName);
       if(existing) {
-        if(type === 'Dev') existing.horsesDev = horses;
-        else existing.horsesChange = horses;
+        if(type === 'Dev') existing.horsesDev = horses; else existing.horsesChange = horses;
+      } else {
+        races.push({ raceName, date: new Date().toLocaleDateString(), horsesDev: type === 'Dev' ? horses : [], horsesChange: type === 'Change' ? horses : [], review: '', status: '待機中', result: '' });
+      }
+      localStorage.setItem('keiba_races', JSON.stringify(races));
+      alert(`「${raceName}」のデータを保存しました！`);
+    }
+
+    let currentPredictionText = "";
+    let currentRaceName = "";
+
+    function generateAIPrediction() {
+      currentRaceName = document.getElementById('predRaceName').value.trim() || "名無しのレース";
+      const pointCount = document.getElementById('predPointCount').value;
+      const rowsDev = document.querySelectorAll('#tableDev tbody tr');
+      const rowsChange = document.querySelectorAll('#tableChange tbody tr');
+
+      let horses = [];
+      rowsDev.forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        const num = inputs[0].value.trim();
+        const name = inputs[1].value.trim();
+        if(name) {
+          const total = parseFloat(inputs[2].value) || 0;
+          const sp = parseFloat(inputs[3].value) || 0;
+          const ag = parseFloat(inputs[4].value) || 0;
+          const achieve = parseFloat(inputs[5].value) || 0;
+          horses.push({ num, name, total, sp, ag, achieve, green: 0, purple: 0, score: 0 });
+        }
+      });
+
+      if(horses.length === 0) return alert("偏差値データが入力されていません。");
+
+      rowsChange.forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        const num = inputs[0].value.trim();
+        const green = parseFloat(inputs[2].value) || 0;
+        const purple = parseFloat(inputs[3].value) || 0;
+        const target = horses.find(h => h.num === num);
+        if(target) { target.green = green; target.purple = purple; }
+      });
+
+      horses.forEach(h => {
+        h.score = (h.total * 0.4) + (h.achieve * 0.3) + (h.sp * 0.15) + (h.ag * 0.15) + (h.green * 3) - (h.purple * 3);
+        h.score = Math.round(h.score * 10) / 10;
+      });
+
+      horses.sort((a, b) => b.score - a.score);
+
+      const h1 = horses[0] || {num:'?', name:'?'};
+      const h2 = horses[1] || {num:'?', name:'?'};
+      const h3 = horses[2] || {num:'?', name:'?'};
+      const h4 = horses[3] || {num:'?', name:'?'};
+      const h5 = horses[4] || {num:'?', name:'?'};
+
+      currentPredictionText = `【AI本命】${h1.num}番 ${h1.name} / 【対抗】${h2.num}番 ${h2.name} / 買い目(${pointCount}点): ${h1.num}から${h2.num},${h3.num},${h4.num}`;
+
+      let html = `<div class="pred-section"><b>■ レース名:</b> ${currentRaceName}</div>`;
+      html += `<div class="pred-section"><b>■ AI本命 (◎):</b> ${h1.num}番 ${h1.name} (スコア: ${h1.score})</div>`;
+      html += `<div class="pred-section"><b>■ 対抗 (〇):</b> ${h2.num}番 ${h2.name} (スコア: ${h2.score})</div>`;
+      html += `<div class="pred-section"><b>■ 2連単 買い目:</b> 軸: ${h1.num} → ${h2.num}, ${h3.num}, ${h4.num}</div>`;
+      
+      if(pointCount === '12') {
+        html += `<div class="pred-section"><b>■ 3連単 12点:</b> 1着:${h1.num} / 2着:${h2.num},${h3.num} / 3着:${h2.num},${h3.num},${h4.num},${h5.num}</div>`;
+      } else if(pointCount === '24') {
+        html += `<div class="pred-section"><b>■ 3連単 24点:</b> 1着:${h1.num},${h2.num} / 2着:${h1.num},${h2.num},${h3.num} / 3着:${h1.num},${h2.num},${h3.num},${h4.num},${h5.num}</div>`;
+      } else {
+        html += `<div class="pred-section"><b>■ 3連単 60点:</b> 上位5頭BOX</div>`;
+      }
+
+      document.getElementById('predContent').innerHTML = html;
+      document.getElementById('predictionResult').style.display = 'block';
+    }
+
+    function moveToWaitingList() {
+      if(!currentPredictionText) return alert("先にAI予想を出力してください。");
+      let races = getStoredRaces();
+      let existing = races.find(r => r.raceName === currentRaceName);
+      
+      if(existing) {
+        existing.prediction = currentPredictionText;
+        existing.status = '待機中';
       } else {
         races.push({
-          raceName,
+          raceName: currentRaceName,
           date: new Date().toLocaleDateString(),
-          horsesDev: type === 'Dev' ? horses : [],
-          horsesChange: type === 'Change' ? horses : [],
+          horsesDev: [],
+          horsesChange: [],
+          prediction: currentPredictionText,
+          status: '待機中',
+          result: '',
           review: ''
         });
       }
-
       localStorage.setItem('keiba_races', JSON.stringify(races));
-      alert(`「${raceName}」の${type === 'Dev' ? '偏差値' : '変わり身'}データを保存しました！`);
-      updateHistoryUI();
+      alert(`「${currentRaceName}」を結果待ちリストにキープしました！④タブで確認できます。`);
+      switchTab('tab4');
+    }
+
+    function updateWaitingUI() {
+      const races = getStoredRaces();
+      const list = document.getElementById('waitingList');
+      list.innerHTML = '';
+      
+      const waitingRaces = races.filter(r => r.status === '待機中' || !r.status);
+      if(waitingRaces.length === 0) {
+        list.innerHTML = '<p style="color:#666;">現在、結果待ちのレースはありません。</p>';
+        return;
+      }
+
+      races.forEach((r, idx) => {
+        if(r.status === '待機中' || !r.status) {
+          list.innerHTML += `
+            <div class="history-item">
+              <div class="history-header">
+                <span>${r.date} : ${r.raceName}</span>
+                <button class="btn-danger" onclick="deleteRace(${idx})">削除</button>
+              </div>
+              <div style="margin-bottom:8px;"><b>予想内容:</b><br>${r.prediction || '（データなし）'}</div>
+              <label style="font-size:11px;">実際のレース結果・着順を入力:</label>
+              <input type="text" id="resInput_${idx}" value="${r.result || ''}" placeholder="例: 1着 17番、2着 7番、3着 3番 中止など">
+              <button class="btn-primary" style="padding:8px; font-size:13px; margin-top:5px;" onclick="completeRaceResult(${idx})">🏁 結果を確定して検証へ移行</button>
+            </div>`;
+        }
+      });
+    }
+
+    function completeRaceResult(idx) {
+      let races = getStoredRaces();
+      const resVal = document.getElementById(`resInput_${idx}`).value;
+      races[idx].result = resVal;
+      races[idx].status = '完了';
+      races[idx].review = `[結果]: ${resVal} \n[予想]: ${races[idx].prediction}`;
+      localStorage.setItem('keiba_races', JSON.stringify(races));
+      alert("結果を確定しました！「⑤ 検証メモ」タブで反省点を書き込めます。");
+      updateWaitingUI();
     }
 
     function updateHistoryUI() {
@@ -253,25 +391,22 @@
       const select = document.getElementById('selectRaceForReview');
       select.innerHTML = '<option value="">-- レースを選択してください --</option>';
       races.forEach((r, idx) => {
-        select.innerHTML += `<option value="${idx}">${r.date} - ${r.raceName}</option>`;
+        select.innerHTML += `<option value="${idx}">${r.date} - ${r.raceName} (${r.status || '完了'})</option>`;
       });
 
       const list = document.getElementById('historyList');
       list.innerHTML = '';
-      if(races.length === 0) {
-        list.innerHTML = '<p style="color:#666;">まだ蓄積されたデータはありません。</p>';
-        return;
-      }
+      if(races.length === 0) { list.innerHTML = '<p style="color:#666;">まだ蓄積されたデータはありません。</p>'; return; }
 
       races.slice().reverse().forEach((r, idx) => {
         const originalIdx = races.length - 1 - idx;
         list.innerHTML += `
           <div class="history-item">
             <div class="history-header">
-              <span>${r.date} : ${r.raceName} (偏差値:${r.horsesDev.length}頭 / 変わり身:${r.horsesChange.length}頭)</span>
+              <span>${r.date} : ${r.raceName} [${r.status || '完了'}]</span>
               <button class="btn-danger" onclick="deleteRace(${originalIdx})">削除</button>
             </div>
-            <div><b>反省メモ:</b> ${r.review || '（なし）'}</div>
+            <div><b>結果・メモ:</b><br>${r.review || '（まだメモがありません）'}</div>
           </div>`;
       });
     }
@@ -289,15 +424,7 @@
       let races = getStoredRaces();
       races[idx].review = document.getElementById('reviewText').value;
       localStorage.setItem('keiba_races', JSON.stringify(races));
-      alert("メモを保存しました！");
-      updateHistoryUI();
-    }
-
-    function deleteRace(idx) {
-      if(!confirm("削除しますか？")) return;
-      let races = getStoredRaces();
-      races.splice(idx, 1);
-      localStorage.setItem('keiba_races', JSON.stringify(races));
+      alert("検証メモを保存しました！");
       updateHistoryUI();
     }
 
@@ -306,6 +433,7 @@
       localStorage.removeItem('keiba_races');
       initDevTable();
       initChangeTable();
+      updateWaitingUI();
       updateHistoryUI();
       alert("初期化しました。");
     }
