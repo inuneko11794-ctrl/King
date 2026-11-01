@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI解析（実践考察版）</title>
+  <title>競馬AI解析（実践考察＆データ蓄積版）</title>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; padding: 10px; background: #f4f6f9; max-width: 700px; margin: auto; }
     h1 { font-size: 1.2rem; text-align: center; color: #333; margin-bottom: 20px; }
     
-    /* タブのデザイン */
     .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 15px; }
     .tab { padding: 10px 15px; cursor: pointer; font-weight: bold; color: #666; background: #e9ecef; border-radius: 8px 8px 0 0; border: 1px solid #ccc; border-bottom: none; flex: 1; text-align: center; font-size: 13px; }
     .tab.active { background: #fff; color: #d32f2f; border-top: 3px solid #d32f2f; border-bottom: 2px solid #fff; margin-bottom: -2px; }
@@ -22,31 +21,31 @@
     .slider-group label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #333; }
     input[type="range"] { width: 100%; margin-bottom: 5px; }
     
-    /* プレビューは画面幅いっぱいに */
     .preview-canvas { width: 100%; height: auto; border: 2px solid #ccc; display: block; margin-bottom: 10px; }
     #tempCanvas { display: none; }
     
     button { padding: 14px; font-size: 15px; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; color: white; margin-bottom: 10px; }
     .btn-analyze { background: #28a745; }
+    .btn-save { background: #6c757d; font-size: 13px; padding: 10px; }
+    .btn-csv { background: #007bff; font-size: 13px; padding: 10px; }
     button:disabled { background: #ccc; }
     
     .status { text-align: center; font-weight: bold; color: #d32f2f; margin-bottom: 10px; font-size: 14px; }
-    
-    /* 深い考察コメントエリア */
     .commentary { background: #f0f4c3; border-left: 5px solid #827717; padding: 15px; margin-top: 15px; border-radius: 4px; font-size: 14px; line-height: 1.6; display: none; color: #333; font-weight: 500; }
     
-    /* テーブル */
-    .table-wrapper { overflow-x: auto; margin-top: 10px; }
+    .table-wrapper { overflow-x: auto; margin-top: 10px; margin-bottom: 15px; }
     table { border-collapse: collapse; width: 100%; font-size: 12px; background: white; min-width: 500px; }
     th, td { border: 1px solid #ccc; padding: 4px; text-align: center; }
     th { background: #2c3e50; color: white; }
     input.cell-input { width: 100%; box-sizing: border-box; padding: 6px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
     input.name-input { text-align: left; min-width: 120px; }
+    
+    .action-buttons { display: flex; gap: 10px; display: none; }
   </style>
 </head>
 <body>
 
-  <h1>🐎 競馬AI解析（実践考察版）</h1>
+  <h1>🐎 競馬AI解析（実践考察＆データ蓄積版）</h1>
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('tab1')">① 指数一覧</div>
@@ -65,12 +64,18 @@
     </div>
     <div style="font-size:11px; color:#d32f2f; margin-bottom: 5px;">※赤い線が行と行のスキマを通るように調整</div>
     <canvas id="preview1" class="preview-canvas"></canvas>
-    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count1" style="padding:4px;"><option value="16" selected>16頭</option><option value="18">18頭</option><option value="14">14頭</option></select></label>
+    
+    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count1" class="horse-count" style="padding:4px;"></select></label>
     <button class="btn-analyze" style="margin-top:10px;" onclick="analyzeData(1)">データを読み取って展開を推測</button>
     <div id="status1" class="status"></div>
     
     <div id="commentary1" class="commentary"></div>
     <div class="table-wrapper"><table id="table1"><thead><tr><th>番</th><th>馬名</th><th>人気</th><th>SP</th><th>AG</th><th>SA</th></tr></thead><tbody></tbody></table></div>
+    
+    <div id="actions1" class="action-buttons">
+      <button class="btn-save" onclick="saveData(1)">結果を端末に一時保存</button>
+      <button class="btn-csv" onclick="exportCSV(1)">CSVを書き出す</button>
+    </div>
   </div>
 
   <!-- ② 偏差値 -->
@@ -82,14 +87,19 @@
       <label>1行分の高さ: <span id="valHeight2">5.0</span>%</label>
       <input type="range" id="height2" min="2" max="10" step="0.1" value="5.0">
     </div>
-    <div style="font-size:11px; color:#d32f2f; margin-bottom: 5px;">※赤い線が行と行のスキマを通るように調整</div>
     <canvas id="preview2" class="preview-canvas"></canvas>
-    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count2" style="padding:4px;"><option value="16" selected>16頭</option><option value="18">18頭</option><option value="14">14頭</option></select></label>
+    
+    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count2" class="horse-count" style="padding:4px;"></select></label>
     <button class="btn-analyze" style="margin-top:10px;" onclick="analyzeData(2)">データを読み取って本質を見抜く</button>
     <div id="status2" class="status"></div>
     
     <div id="commentary2" class="commentary"></div>
     <div class="table-wrapper"><table id="table2"><thead><tr><th>番</th><th>総合(偏)</th><th>実績</th></tr></thead><tbody></tbody></table></div>
+    
+    <div id="actions2" class="action-buttons">
+      <button class="btn-save" onclick="saveData(2)">結果を端末に一時保存</button>
+      <button class="btn-csv" onclick="exportCSV(2)">CSVを書き出す</button>
+    </div>
   </div>
 
   <!-- ③ 変わり身 -->
@@ -101,19 +111,34 @@
       <label>1行分の高さ: <span id="valHeight3">5.0</span>%</label>
       <input type="range" id="height3" min="2" max="10" step="0.1" value="5.0">
     </div>
-    <div style="font-size:11px; color:#d32f2f; margin-bottom: 5px;">※赤い線が行と行のスキマを通るように調整</div>
     <canvas id="preview3" class="preview-canvas"></canvas>
-    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count3" style="padding:4px;"><option value="16" selected>16頭</option><option value="18">18頭</option><option value="14">14頭</option></select></label>
+    
+    <label style="font-weight:bold; font-size:14px;">出走頭数: <select id="count3" class="horse-count" style="padding:4px;"></select></label>
     <button class="btn-analyze" style="margin-top:10px;" onclick="analyzeData(3)">状態マークから波乱度を分析</button>
     <div id="status3" class="status"></div>
     
     <div id="commentary3" class="commentary"></div>
     <div class="table-wrapper"><table id="table3"><thead><tr><th>番</th><th>緑(良)</th><th>紫(悪)</th></tr></thead><tbody></tbody></table></div>
+    
+    <div id="actions3" class="action-buttons">
+      <button class="btn-save" onclick="saveData(3)">結果を端末に一時保存</button>
+      <button class="btn-csv" onclick="exportCSV(3)">CSVを書き出す</button>
+    </div>
   </div>
 
   <canvas id="tempCanvas"></canvas>
 
   <script>
+    // 5頭〜18頭のプルダウンを自動生成
+    document.querySelectorAll('.horse-count').forEach(select => {
+      for(let i = 5; i <= 18; i++) {
+        const opt = document.createElement('option');
+        opt.value = i; opt.text = `${i}頭`;
+        if(i === 16) opt.selected = true; // デフォルトは16頭
+        select.appendChild(opt);
+      }
+    });
+
     function switchTab(tabId) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -165,40 +190,31 @@
         };
         reader.readAsDataURL(file);
       });
-
       document.getElementById(state[id].startId).addEventListener('input', e => {
-        document.getElementById(state[id].valS).textContent = e.target.value;
-        drawPreview(id);
+        document.getElementById(state[id].valS).textContent = e.target.value; drawPreview(id);
       });
       document.getElementById(state[id].heightId).addEventListener('input', e => {
-        document.getElementById(state[id].valH).textContent = e.target.value;
-        drawPreview(id);
+        document.getElementById(state[id].valH).textContent = e.target.value; drawPreview(id);
       });
       document.getElementById(state[id].countId).addEventListener('change', () => drawPreview(id));
     });
 
-    // 🎯 独自の予測と洞察を行う「真のAI解析ロジック」
     function generateInsight(id, results) {
       const div = document.getElementById(`commentary${id}`);
       if (results.length === 0) return;
-      
       let text = "<b>【AI予測・考察】</b><br><br>";
       
       if (id === 1) { 
-        // 指数一覧：展開予想と穴馬発掘
-        const highSA_lowPop = results.filter(r => r.sa >= 85 && r.pop >= 6); // SA高くて人気薄
-        const highSP = results.filter(r => r.sp >= 75); // 逃げ・先行候補
-        const highAG = results.filter(r => r.ag >= 65); // 上がり候補
-
+        const highSA_lowPop = results.filter(r => r.sa >= 85 && r.pop >= 6);
+        const highSP = results.filter(r => r.sp >= 75);
+        const highAG = results.filter(r => r.ag >= 65);
         if (highSA_lowPop.length > 0) {
-          const names = highSA_lowPop.map(r => r.name).join("、");
-          text += `🎯 オッズの盲点になっている馬を発見。<b>${names}</b>は人気以上のポテンシャルを秘めており、馬券の旨味が非常に高い一頭です。<br><br>`;
+          text += `🎯 オッズの盲点になっている馬を発見。<b>${highSA_lowPop.map(r => r.name).join("、")}</b>は人気以上のポテンシャルを秘めており、馬券の旨味が非常に高い一頭です。<br><br>`;
         } else {
           text += `🎯 指数上位と人気が概ねリンクしており、波乱の余地は少ない堅実なメンバー構成と見受けられます。<br><br>`;
         }
-        
         if (highSP.length > 1) {
-          text += `🏃‍♂️ 展開：前に行きたい馬（SP上位）が複数おり、先行争いが激化する気配。展開が向けば、末脚（AG値）に優れる<b>${highAG.length > 0 ? highAG.map(r=>r.name).join("、") : "後方待機の差し馬"}</b>の台頭に警戒が必要です。`;
+          text += `🏃‍♂️ 展開：前に行きたい馬（SP上位）が複数おり、先行争いが激化する気配。展開が向けば、末脚に優れる<b>${highAG.length > 0 ? highAG.map(r=>r.name).join("、") : "後方待機の差し馬"}</b>の台頭に警戒が必要です。`;
         } else if (highSP.length === 1) {
           text += `🏃‍♂️ 展開：<b>${highSP[0].name}</b>が楽に主導権を握れそうな構成です。マイペースで逃げられれば、そのまま押し切る展開も十分考えられます。`;
         } else {
@@ -206,46 +222,35 @@
         }
       } 
       else if (id === 2) { 
-        // 偏差値：本格化の兆しと危険な人気馬
-        const rising = results.filter(r => r.devT - r.devA >= 10); // 実績より総合が高い（勢いあり）
-        const dangerous = results.filter(r => r.devA - r.devT >= 10); // 総合より実績が高い（過去の栄光）
-
-        if (rising.length > 0) {
-          text += `📈 過去の実績以上に現在の状態・勢いが目立つのが<b>${rising.map(r=>r.num+"番").join("、")}</b>です。クラス慣れや本格化の兆しがあり、強気に狙って面白い存在です。<br><br>`;
-        }
-        if (dangerous.length > 0) {
-          text += `⚠️ 逆に<b>${dangerous.map(r=>r.num+"番").join("、")}</b>は、過去の実績値だけで評価されている可能性が高いです。現状の偏差値を見る限りピークアウトの懸念があり、過信は禁物（危険な人気馬）です。`;
-        }
-        if (rising.length === 0 && dangerous.length === 0) {
-          text += `⚖️ 各馬とも実力と現状の状態がしっかりリンクしており、大きなフロック（マグレ）は起きにくい、データ通りの堅実な決着になる可能性が高いです。`;
-        }
+        const rising = results.filter(r => r.devT - r.devA >= 10);
+        const dangerous = results.filter(r => r.devA - r.devT >= 10);
+        if (rising.length > 0) text += `📈 過去の実績以上に現在の状態・勢いが目立つのが<b>${rising.map(r=>r.num+"番").join("、")}</b>です。強気に狙って面白い存在です。<br><br>`;
+        if (dangerous.length > 0) text += `⚠️ 逆に<b>${dangerous.map(r=>r.num+"番").join("、")}</b>は、過去の実績値だけで評価されている可能性が高いです。ピークアウトの懸念があり過信は禁物です。`;
+        if (rising.length === 0 && dangerous.length === 0) text += `⚖️ 各馬とも実力と現状の状態がしっかりリンクしており、データ通りの堅実な決着になる可能性が高いです。`;
       } 
       else if (id === 3) { 
-        // 変わり身：レースの波乱度判定
         const goodHorses = results.filter(r => r.good > 0);
         const badHorses = results.filter(r => r.bad > 0);
-        
         if (goodHorses.length > 0 && badHorses.length > 0) {
-          text += `⚡️ 好走要因と不安要因が入り乱れており、<b>波乱の可能性が極めて高いレース</b>です。<br><br>特に陣営の勝負気配（緑マーク）が表れている<b>${goodHorses.map(r=>r.num+"番").join("、")}</b>のオッズ次第では、大穴狙いのフォーメーションに組み込む価値があります。`;
+          text += `⚡️ 好走要因と不安要因が入り乱れており、<b>波乱の可能性が極めて高いレース</b>です。<br>陣営の勝負気配（緑マーク）が表れている<b>${goodHorses.map(r=>r.num+"番").join("、")}</b>のオッズ次第では、大穴狙いの価値があります。`;
         } else if (goodHorses.length > 0) {
-          text += `✨ 出走馬全体として不安要素が少なく、特に前進気勢（緑マーク）が見える<b>${goodHorses.map(r=>r.num+"番").join("、")}</b>の上積みに期待が持てます。軸馬選びの最後のひと押しになりそうです。`;
+          text += `✨ 特に前進気勢（緑マーク）が見える<b>${goodHorses.map(r=>r.num+"番").join("、")}</b>の上積みに期待が持てます。`;
         } else if (badHorses.length > 0) {
-          text += `🌀 全体的に不安材料（紫ドクロ）を抱える馬が多く、見えない疲労や適性外の条件で凡走する馬が続出しそうです。<b>手広く構えて思わぬ伏兵の台頭を待つ</b>のが賢明なレースと言えます。`;
+          text += `🌀 全体的に不安材料（紫ドクロ）を抱える馬が多く、凡走する馬が続出しそうです。<b>手広く構えて思わぬ伏兵の台頭を待つ</b>のが賢明なレースです。`;
         } else {
-          text += `📊 特筆すべきプラス・マイナスの変わり身要素がなく、純粋なこれまでの地力勝負になる可能性が高い、フラットなレースです。`;
+          text += `📊 特筆すべきプラス・マイナスの変わり身要素がなく、純粋なこれまでの地力勝負になる可能性が高いフラットなレースです。`;
         }
       }
-
       div.innerHTML = text;
       div.style.display = 'block';
     }
 
     async function analyzeData(id) {
       if (!state[id].img.src) return alert("画像を選択してください");
-      
       const statusEl = document.getElementById(`status${id}`);
       const tbody = document.querySelector(`#table${id} tbody`);
       document.getElementById(`commentary${id}`).style.display = 'none';
+      document.getElementById(`actions${id}`).style.display = 'none';
       tbody.innerHTML = '';
       
       const img = state[id].img;
@@ -289,7 +294,6 @@
               if (id === 1 && nums.length >= 6) {
                 const name = parts.slice(1, parts.length - nums.length).join("").replace(/\d[牡牝せん].*/, "");
                 results.push({ num, name, pop: nums[0], sp: nums[1], ag: nums[2], sa: nums[5] });
-                
                 tbody.innerHTML += `<tr>
                   <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
                   <td><input type="text" class="cell-input name-input" value="${name}"></td>
@@ -331,7 +335,6 @@
               }
               const good = gCount > 20 ? 1 : 0;
               const bad = pCount > 20 ? 1 : 0;
-              
               results.push({ num, good, bad });
               tbody.innerHTML += `<tr>
                 <td><input type="number" class="cell-input" style="width:40px;" value="${num}"></td>
@@ -344,12 +347,50 @@
         await worker.terminate();
         statusEl.textContent = "解析完了！間違いがあれば数値を手直しできます。";
         generateInsight(id, results);
+        document.getElementById(`actions${id}`).style.display = 'flex'; // 保存・CSVボタンを表示
         
       } catch (error) {
         statusEl.textContent = "エラーが発生しました。";
-      } finally {
-        document.querySelector(`#tab${id} .btn-analyze`).disabled = false;
       }
+    }
+
+    // --- データ保存＆CSV書き出しロジック ---
+    function saveData(id) {
+      const rows = document.querySelectorAll(`#table${id} tbody tr`);
+      if(rows.length === 0) return alert("保存するデータがありません。");
+      let data = [];
+      rows.forEach(tr => {
+        let rowData = [];
+        tr.querySelectorAll('input').forEach(input => rowData.push(input.value));
+        data.push(rowData);
+      });
+      localStorage.setItem(`horseData_tab${id}`, JSON.stringify(data));
+      alert("ブラウザの内部に一時保存しました！");
+    }
+
+    function exportCSV(id) {
+      const rows = document.querySelectorAll(`#table${id} tbody tr`);
+      if(rows.length === 0) return alert("書き出すデータがありません。");
+      
+      let csv = [];
+      const headers = Array.from(document.querySelectorAll(`#table${id} thead th`)).map(th => th.textContent);
+      csv.push(headers.join(','));
+      
+      rows.forEach(tr => {
+        const rowData = Array.from(tr.querySelectorAll('input')).map(input => `"${input.value}"`);
+        csv.push(rowData.join(','));
+      });
+      
+      const blob = new Blob([csv.join('\n')], {type: 'text/csv;charset=utf-8;'});
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      
+      // 保存ファイル名に現在時刻を入れる
+      const now = new Date();
+      const timeStr = `${now.getMonth()+1}${now.getDate()}_${now.getHours()}${now.getMinutes()}`;
+      link.download = `分析データ_タブ${id}_${timeStr}.csv`;
+      
+      link.click();
     }
   </script>
 </body>
