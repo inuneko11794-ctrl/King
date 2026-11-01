@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>競馬指数AI予想（完全無料・オフライン版）</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 15px; background: #f4f6f9; max-width: 800px; margin: auto; }
+    h1 { font-size: 1.3rem; text-align: center; color: #333; }
+    .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    input[type="file"] { margin-bottom: 15px; width: 100%; font-size: 16px; }
+    button { padding: 14px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
+    button:disabled { background: #ccc; }
+    #status { margin-top: 15px; font-weight: bold; color: #007bff; text-align: center; white-space: pre-wrap; }
+    
+    /* アプリ用のHTMLテーブルデザイン */
+    .result-table { border-collapse: collapse; width: 100%; margin-top: 1rem; background: white; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .result-table th, .result-table td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; white-space: nowrap; }
+    .result-table th { background: #2c3e50; color: white; }
+    .horse-name { text-align: left; font-weight: bold; white-space: normal; }
+    .top1 { background: #ffebee !important; }
+    .top2 { background: #fff3e0 !important; }
+    .top3 { background: #f1f8e9 !important; }
+    .score { font-weight: bold; color: #d32f2f; font-size: 15px; }
+    
+    /* ユーザーには見せない裏側の処理用キャンバス */
+    #tempCanvas { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>🐎 競馬指数AI予想（完全無料版）</h1>
+  
+  <div class="card">
+    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 10px;">
+      外部通信なしでブラウザ内部で解析します。<br>
+      ※色やマークは自動で白に飛ばし、文字だけを読み取ります。
+    </label>
+    <input type="file" id="imageInput" accept="image/*">
+    <button id="btnAnalyze">画像を解析して予想を生成</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="result"></div>
+  <canvas id="tempCanvas"></canvas>
+
+  <script>
+    // 独自のスコア計算ロジック
+    function calculateScore(horse) {
+      const score = (horse.sa * 0.4) + (horse.ag * 0.25) + (horse.sp * 0.2) + (horse.s * 0.1) + ((20 - horse.pop) * 0.5);
+      return Math.round(score * 10) / 10;
+    }
+
+    document.getElementById('btnAnalyze').addEventListener('click', async () => {
+      const fileInput = document.getElementById('imageInput');
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+      const btn = document.getElementById('btnAnalyze');
+
+      if (!fileInput.files[0]) return alert("画像を選択してください");
+
+      btn.disabled = true;
+      statusEl.textContent = "AIで画像を解析中...\n（スマホの性能により10〜20秒かかります）";
+      resultEl.innerHTML = "";
+
+      const img = new Image();
+      img.src = URL.createObjectURL(fileInput.files[0]);
+      
+      img.onload = async () => {
+        const canvas = document.getElementById('tempCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        // --- 強力な白黒化フィルター（色・マークの除去） ---
+        // 黒い文字だけを残し、ヒートマップの赤・黄や記号の緑などを全て白(255)に飛ばす
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < imgData.data.length; i += 4) {
+          const r = imgData.data[i];
+          const g = imgData.data[i+1];
+          const b = imgData.data[i+2];
+          
+          // ピクセルの明るさを計算
+          const avg = (r + g + b) / 3;
+          
+          // 閾値(110)より暗いもの(文字)は真っ黒に、明るいもの(背景・色付きマーク)は真っ白にする
+          const color = avg < 110 ? 0 : 255; 
+          imgData.data[i] = color;
+          imgData.data[i+1] = color;
+          imgData.data[i+2] = color;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        // ------------------------------------------------
+
+        try {
+          const worker = await Tesseract.createWorker('jpn');
+          await worker.setParameters({ 
+            tessedit_pageseg_mode: '6' // 表などのブロック構造を認識しやすいモード
+          });
+          const { data: { text } } = await worker.recognize(canvas);
+          await worker.terminate();
+
+          // 解析テキストの行分割
+          const lines = text.split('\n');
+          const horses = [];
+
+          for (const line of lines) {
+            // 不要な記号やアンダーバーを消去
+            const cleanLine = line.replace(/[口□_]/g, '').trim();
+            const parts = cleanLine.split(/\s+/);
+            
+            // 短すぎる行や、先頭が数字（馬番）じゃない行（ヘッダー等）は無視
+            if (parts.length < 8 || isNaN(parseInt(parts[0]))) continue;
+
+            const horseNum = parseInt(parts[0]);
+            
+            // OCRの誤認対策 (Oを0に変換など)
+            const parseSafe = (str) => {
+              const num = parseFloat(str.replace(/[Oo]/g, '0'));
+              return isNaN(num) ? 0 : num;
+            };
+
+            // 【逆算パースロジック】
+            // 画像の右側（後ろ）から数値を拾うことで、馬名の中にスペースが混ざっても列がズレない
+            const nums = [];
+            for (let i = parts.length - 1; i >= 1; i--) {
+               const val = parseSafe(parts[i]);
+               // 変換した結果がちゃんと数字になっていれば配列の前に追加
+               if (!isNaN(parseFloat(parts[i].replace(/[Oo]/g, '0')))) {
+                 nums.unshift(val);
+               } else {
+                 break; // 数字以外（馬名の末尾）にぶつかったら数値の取得を終了
+               }
+            }
+
+            // 最低限必要な数値の数（人気, SP, AG, S, A, SA の6つ）が取れなければスキップ
+            if (nums.length < 6) continue;
+
+            // 馬名の抽出（先頭の馬番と、後ろの数値群の間にある文字列を結合）
+            let name = parts.slice(1, parts.length - nums.length).join("");
+            name = name.replace(/\d[牡牝せん].*/, ""); // "2牡"などの不要な性齢をカット
+
+            // 後ろから拾った数値配列の前半6つを各指数に割り当て
+            horses.push({
+              number: horseNum,
+              name: name,
+              pop: nums[0], // 人気
+              sp: nums[1],  // SP値
+              ag: nums[2],  // AG値
+              s: nums[3],   // S値
+              a: nums[4],   // A値
+              sa: nums[5]   // SA値
+            });
+          }
+
+          if (horses.length === 0) throw new Error("データを抽出できませんでした");
+
+          // スコア計算とソート
+          horses.forEach(h => h.score = calculateScore(h));
+          const sorted = horses.sort((a, b) => b.score - a.score);
+
+          // 画面にテーブル出力
+          let html = `<table class="result-table"><tr><th>印</th><th>番</th><th>馬名</th><th>人</th><th>SP</th><th>AG</th><th>SA</th><th>スコア</th></tr>`;
+          sorted.forEach((h, i) => {
+            let trClass = i === 0 ? 'top1' : (i === 1 ? 'top2' : (i === 2 ? 'top3' : ''));
+            let mark = i === 0 ? '◎' : (i === 1 ? '◯' : (i === 2 ? '▲' : ''));
+            
+            html += `<tr class="${trClass}">
+              <td style="color:red; font-weight:bold;">${mark}</td>
+              <td>${h.number}</td>
+              <td class="horse-name">${h.name}</td>
+              <td>${h.pop}</td><td>${h.sp}</td><td>${h.ag}</td><td>${h.sa}</td>
+              <td class="score">${h.score.toFixed(1)}</td>
+            </tr>`;
+          });
+          html += `</table>`;
+          
+          resultEl.innerHTML = html;
+          statusEl.textContent = `解析完了！ (${horses.length}頭のデータを抽出)`;
+          
+        } catch (error) {
+          statusEl.textContent = "読み取りエラー。画像が不鮮明か、形式が異なります。";
+          console.error(error);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    });
+  </script>
+</body>
+</html>
